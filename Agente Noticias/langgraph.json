@@ -1,0 +1,8 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "agente_noticias": "./agente_noticias/studio.py:graph"
+  },
+  "env": "../lca-lc-foundations/.env",
+  "python_version": "3.11"
+}

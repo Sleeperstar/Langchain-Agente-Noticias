@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+ENV/
+
+# Variables de entorno (¡secretos!)
+.env
+.env.local
+.env.*.local
+
+# LangGraph / LangChain checkpoints (archivos binarios)
+.langgraph_api/
+**/.langgraph_api/
+*.pckl
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# IDEs
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Agentes y skills de IA (configuración local)
+.agents/
+.claude/
+skills-lock.json
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Outputs generados (opcional, descomenta si quieres excluirlos)
+# output/
