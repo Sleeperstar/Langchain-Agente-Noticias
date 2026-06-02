@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import TypedDict
 
-from agente_noticias.schemas import Article, Briefing, EvaluatedArticle
+from agente_ia.schemas import Article, Briefing, EvaluatedArticle
 
 
 class NewsState(TypedDict, total=False):
@@ -12,13 +12,8 @@ class NewsState(TypedDict, total=False):
     # Researcher
     raw_articles: list[Article]
 
-    # History filter (anti-repeticion contra Supabase)
-    dropped_by_history: int
-
     # Evaluator
     scored_articles: list[EvaluatedArticle]
-
-    # Ranker
     selected_articles: list[EvaluatedArticle]
 
     # Summarizer
@@ -32,6 +27,3 @@ class NewsState(TypedDict, total=False):
     # Sender
     send_result: str
     run_id: str
-
-    # Persist history
-    briefing_id: str

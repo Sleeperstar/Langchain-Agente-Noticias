@@ -1,113 +1,134 @@
-# Agente Noticias - Win Internet
+# Agente Noticias IA - Win Internet
 
-Agente construido con **LangGraph** que cada vez que se ejecuta:
+Agente construido con **LangGraph** que arma un **briefing semanal de noticias de IA**
+(digeribles, para una audiencia de nivel inicial/intermedio) y lo envia por correo a
+los directivos de Win Internet. En cada corrida:
 
-1. Busca noticias recientes de IA en Tavily con varias queries especializadas (telecom, Peru, competencia, regulacion, atencion al cliente).
-2. Evalua cada noticia con un LLM (`gpt-5-nano`) usando salida estructurada (Pydantic) para puntuar relevancia 0-10 y clasificar el area de impacto para Win Internet.
-3. Resume y agrupa las noticias por categoria.
-4. Genera un correo HTML estructurado y compatible con Outlook.
-5. Pausa con **HITL** (`interrupt`) para que tu apruebes/rechaces.
-6. Si apruebas, envia el correo a `jquispeh@win.pe` usando la sesion activa de **Outlook Desktop** via `pywin32` (COM).
+1. **researcher**: busca noticias recientes de IA en Tavily (nuevos modelos, IA agentica,
+   productos y novedades de las grandes), con dominios curados. Deduplica por URL y por
+   similitud de titulo.
+2. **history_filter**: descarta noticias que ya se enviaron en las ultimas semanas
+   (historial en Supabase), para no repetir contenido entre briefings.
+3. **evaluator**: el LLM puntua cada noticia (0-10) con un rubric estricto, le asigna
+   categoria, la resume y la explica "en simple". Usa salida estructurada (Pydantic).
+4. **ranker**: ve todas las candidatas juntas, colapsa duplicados del mismo evento y
+   asigna scores diferenciados (solo lo mas grande de la semana llega a 10). Elige el top 5.
+5. **summarizer**: arma headline + TL;DR (lectura de 30 segundos) + **concepto del dia**
+   + **chiste** de cierre, con el tono de marca Win.
+6. **email_writer**: renderiza el correo HTML con el look and feel de Win y guarda
+   `output/preview.html`.
+7. **outlook_sender**: envia el correo via **Outlook Desktop** (`pywin32`/COM) a los
+   destinatarios configurados (soporta varios).
+8. **persist_history**: guarda en Supabase las noticias enviadas para el anti-repeticion.
 
-Todo el flujo queda trazado en **LangSmith** bajo el proyecto `agente-noticias-win`.
+Flujo automatico (sin aprobacion humana). Todo queda trazado en **LangSmith** bajo el
+proyecto `agente-noticias-win`.
 
 ## Estructura
 
 ```
 Agente Noticias/
-├── agente_noticias/             # paquete Python reusable
-│   ├── config.py                # contexto Win, queries, modelo
+├── agente_noticias/
+│   ├── config.py                # audiencia, queries, dominios curados, parametros
 │   ├── state.py                 # NewsState (TypedDict)
-│   ├── schemas.py               # Article, ArticleEvaluation, Briefing
-│   ├── prompts.py               # prompts en espanol
-│   ├── email_template.py        # plantilla HTML Outlook-safe (Jinja2)
-│   ├── graph.py                 # StateGraph + HITL
+│   ├── schemas.py               # Article, ArticleEvaluation, Ranking, Briefing
+│   ├── prompts.py               # prompts + tono de marca Win
+│   ├── text_utils.py            # normalizacion/similitud de titulos (dedup)
+│   ├── db.py                    # cliente Supabase (historial)
+│   ├── email_template.py        # plantilla HTML con paleta Win
+│   ├── graph.py                 # StateGraph (flujo automatico)
+│   ├── studio.py                # grafo para langgraph dev / Studio
+│   ├── assets/                  # win_logo.png (logo del header)
 │   └── nodes/
-│       ├── researcher.py        # Tavily multi-query
-│       ├── evaluator.py         # LLM scoring relevancia
-│       ├── summarizer.py        # consolida briefing
-│       ├── email_writer.py      # renderiza HTML + guarda preview
-│       └── outlook_sender.py    # pywin32 -> Outlook.Application
-├── notebooks/
-│   └── agente_noticias.ipynb    # version didactica estilo curso
-├── scripts/
-│   ├── run.py                   # on-demand
-│   └── run_scheduled.ps1        # wrapper para Task Scheduler
-├── docs/
-│   └── task_scheduler_setup.md  # como programar la ejecucion diaria
-├── output/                      # se genera preview.html aqui
-├── .env.example
+│       ├── researcher.py        # Tavily multi-query + dedup
+│       ├── history_filter.py    # anti-repeticion contra Supabase
+│       ├── evaluator.py         # LLM scoring (solo puntua)
+│       ├── ranker.py            # scoring comparativo diferenciado
+│       ├── summarizer.py        # briefing + concepto + chiste
+│       ├── email_writer.py      # renderiza HTML + preview
+│       ├── outlook_sender.py    # pywin32 -> Outlook (CID logo, multi-destino)
+│       └── persist_history.py   # guarda historial en Supabase
+├── scripts/run.py
+├── langgraph.json
 ├── pyproject.toml
-└── requirements.txt
+├── requirements.txt
+└── .env.example
 ```
 
-## Prerrequisitos
+## Requisitos
 
-- Windows + Python 3.11 o superior.
-- **Outlook Desktop instalado, abierto y con sesion iniciada** en `jquispeh@win.pe`.
-- `OPENAI_API_KEY`, `TAVILY_API_KEY` y `LANGSMITH_API_KEY` (puedes reutilizar las del curso `lca-lc-foundations`, el codigo carga ese `.env` automaticamente).
+- Windows + Python 3.11+
+- [uv](https://docs.astral.sh/uv/) como gestor de paquetes
+- Outlook Desktop abierto y autenticado (para el envio real)
+- API keys: OpenAI, Tavily, LangSmith y (opcional pero recomendado) Supabase
 
-## Instalacion
+## Instalacion (uv)
 
-Desde la carpeta `Agente Noticias/`:
-
-```powershell
-# Opcion A: reusar el venv del curso
-..\lca-lc-foundations\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-
-# Opcion B: venv propio
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+```bash
+cd "Agente Noticias"
+uv sync                  # instala dependencias
+uv sync --extra studio   # incluye LangGraph Studio (langgraph dev)
 ```
 
-`pywin32` puede requerir el post-install:
+## Configuracion
 
-```powershell
-python .venv\Scripts\pywin32_postinstall.py -install
+Copia `.env.example` a `.env` y completa:
+
+```env
+OPENAI_API_KEY=...
+TAVILY_API_KEY=...
+LANGSMITH_API_KEY=...
+LANGSMITH_TRACING=true
+LANGSMITH_PROJECT=agente-noticias-win
+NEWS_RECIPIENT=directivo1@win.pe,directivo2@win.pe   # varios separados por coma
+NEWS_MODEL=gpt-5-mini
+SUPABASE_URL=https://nknpunmqivtvbiwaubqd.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=...   # del proyecto Automatizaciones (Settings > API)
+DEDUP_WEEKS=6
 ```
+
+### Logo de Win
+
+Coloca el logo blanco + claim (PNG transparente) en
+`agente_noticias/assets/win_logo.png`. Si falta, el header usa un wordmark de texto.
 
 ## Uso
 
-### On-demand (con aprobacion humana)
-
-```powershell
-python scripts/run.py
+```bash
+uv run python scripts/run.py              # busca, arma briefing y envia por Outlook
+uv run python scripts/run.py --dry-run    # solo genera output/preview.html (no envia ni guarda)
+uv run python scripts/run.py --headless   # no abre el navegador
+uv run python scripts/run.py --model gpt-5-mini
 ```
 
-Mostrara el preview en `output/preview.html` y abrira el archivo. Te pedira en consola: `enviar? [s/N]`.
+## LangGraph Studio
 
-### On-demand sin aprobacion (envio automatico)
-
-```powershell
-python scripts/run.py --auto-approve
+```bash
+uv run --extra studio langgraph dev
 ```
 
-### Programado (Task Scheduler de Windows)
+Lee `langgraph.json` (grafo `agente_noticias`) y muestra todos los nodos del flujo.
 
-Ver [docs/task_scheduler_setup.md](docs/task_scheduler_setup.md).
+## Historial anti-repeticion (Supabase)
 
-### Notebook didactico
-
-```powershell
-jupyter lab notebooks/agente_noticias.ipynb
-```
-
-Ejecuta celda por celda para entender cada nodo del grafo, como en los notebooks del curso.
+- Proyecto: **Automatizaciones** (`nknpunmqivtvbiwaubqd`), esquema `agente_noticias`.
+- Tablas: `briefings` y `sent_articles` (con RLS; el acceso es via service role key).
+- `history_filter` consulta lo enviado en las ultimas `DEDUP_WEEKS` semanas y descarta
+  repetidos; `persist_history` guarda lo enviado tras cada correo.
+- Si no configuras Supabase, el agente sigue funcionando (no filtra ni guarda).
 
 ## Trazabilidad LangSmith
 
-Cada ejecucion crea un run en https://smith.langchain.com bajo el proyecto **`agente-noticias-win`** con:
-
-- Tag `agente_noticias`, `win_internet`, fecha.
-- Metadata con las queries usadas.
-- Un run trace por nodo del grafo (researcher, evaluator, summarizer, email_writer, outlook_sender).
-- El `run_id` queda incluido como pie de pagina del correo enviado para auditoria.
+Cada corrida se agrupa en el proyecto **`agente-noticias-win`** con tags, metadata y
+`run_name`. Cada nodo es un span y el `run_id` se incrusta en el pie del correo.
 
 ## Troubleshooting
 
-- **`pywintypes.com_error` al instanciar Outlook**: asegura que Outlook esta abierto y que el proceso de Python corre en la misma sesion de usuario (no como SYSTEM).
-- **Correo no llega**: revisa "Elementos enviados" en Outlook; Win puede tener reglas de DLP que retengan el correo.
-- **Sin resultados de Tavily**: aumenta `days` en `agente_noticias/config.py` o relaja las queries.
-- **Trace no aparece en LangSmith**: confirma `LANGSMITH_TRACING=true` y reinicia el proceso (la variable se lee al import).
+- **`pywintypes.com_error: No se ha llamado a CoInitialize`**: ya resuelto; el sender
+  llama a `CoInitialize()` por hilo. Asegura que Outlook este abierto.
+- **El logo no se ve en el correo**: confirma que `assets/win_logo.png` existe; en el
+  preview del navegador se usa data URI y en el correo `cid:winlogo`.
+- **No filtra repetidos**: revisa `SUPABASE_SERVICE_ROLE_KEY` (no debe quedar en
+  `PENDIENTE_...`).
+- **Trace no aparece en LangSmith**: confirma `LANGSMITH_TRACING=true`.
+```

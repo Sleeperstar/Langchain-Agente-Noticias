@@ -1,17 +1,26 @@
-"""Plantilla HTML compatible con Outlook (motor Word: tablas + CSS inline)."""
+"""Plantilla HTML del correo con el look and feel de Win Internet.
+
+Compatible con Outlook (motor Word: tablas + CSS inline). Paleta oficial del
+brand book: naranja principal, negro, blanco y amarillo de resalte.
+"""
 from __future__ import annotations
 
+import base64
 from collections import OrderedDict
 from datetime import date
 from typing import Iterable
 
 from jinja2 import Environment, select_autoescape
 
+from agente_noticias.config import CATEGORIAS, LOGO_PATH
 from agente_noticias.schemas import Briefing, EvaluatedArticle
 
-PRIMARY_COLOR = "#003B7A"
-ACCENT_COLOR = "#00A6CE"
-SOFT_BG = "#F4F7FB"
+# Paleta oficial Win (brand book 2024).
+ORANGE = "#FF5A0A"
+YELLOW = "#FFC200"
+BLACK = "#0F0908"
+WHITE = "#FFFFFF"
+SOFT_BG = "#FFF3EC"
 TEXT_COLOR = "#1F2937"
 MUTED_COLOR = "#6B7280"
 
@@ -22,41 +31,68 @@ TEMPLATE = """\
 <meta charset="UTF-8">
 <title>{{ briefing.headline }}</title>
 </head>
-<body style="margin:0;padding:0;background:#E5E9F0;font-family:Segoe UI,Arial,sans-serif;color:{{ text }};">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#E5E9F0">
+<body style="margin:0;padding:0;background:#ECECEC;font-family:Segoe UI,Arial,sans-serif;color:{{ text }};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ECECEC">
   <tr><td align="center" style="padding:24px 12px;">
 
     <!-- contenedor -->
     <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0"
-           style="width:640px;max-width:640px;background:#FFFFFF;border-radius:8px;overflow:hidden;
-                  box-shadow:0 2px 6px rgba(0,0,0,0.08);">
+           style="width:640px;max-width:640px;background:#FFFFFF;border-radius:10px;overflow:hidden;
+                  box-shadow:0 2px 8px rgba(0,0,0,0.10);">
 
       <!-- header -->
       <tr>
-        <td bgcolor="{{ primary }}" style="padding:24px 28px;color:#FFFFFF;">
+        <td bgcolor="{{ orange }}" style="padding:22px 28px;color:#FFFFFF;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>
-              <td style="font-size:12px;letter-spacing:2px;color:#B9D7F2;text-transform:uppercase;">
-                Briefing IA - Win Internet
+              <td align="left" style="vertical-align:middle;">
+                {% if logo_src %}
+                <img src="{{ logo_src }}" alt="WIN" height="34" style="height:34px;display:block;border:0;">
+                {% else %}
+                <span style="font-size:30px;font-weight:800;color:#FFFFFF;letter-spacing:-1px;">win</span>
+                {% endif %}
               </td>
-              <td align="right" style="font-size:12px;color:#B9D7F2;">{{ today }}</td>
+              <td align="right" style="vertical-align:middle;font-size:12px;color:#FFE6D5;">
+                {{ today }}
+              </td>
             </tr>
+          </table>
+          <div style="margin-top:14px;font-size:11px;letter-spacing:2px;color:#FFE6D5;text-transform:uppercase;">
+            Briefing semanal de IA
+          </div>
+          <div style="margin-top:4px;font-size:22px;font-weight:700;line-height:1.3;color:#FFFFFF;">
+            {{ briefing.headline }}
+          </div>
+        </td>
+      </tr>
+
+      <!-- concepto del dia -->
+      {% if briefing.concepto_titulo %}
+      <tr>
+        <td style="padding:20px 28px 4px 28px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                 style="background:{{ yellow }};border-radius:8px;">
             <tr>
-              <td colspan="2" style="padding-top:8px;font-size:22px;font-weight:600;line-height:1.3;color:#FFFFFF;">
-                {{ briefing.headline }}
+              <td style="padding:14px 18px;color:{{ black }};">
+                <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:800;">
+                  Concepto del dia
+                </div>
+                <div style="margin-top:6px;font-size:16px;font-weight:700;">{{ briefing.concepto_titulo }}</div>
+                <div style="margin-top:4px;font-size:14px;line-height:1.55;">{{ briefing.concepto_explicacion }}</div>
               </td>
             </tr>
           </table>
         </td>
       </tr>
+      {% endif %}
 
       <!-- TL;DR -->
       <tr>
-        <td style="padding:24px 28px 8px 28px;">
-          <div style="font-size:11px;letter-spacing:1.5px;color:{{ accent }};
-                      text-transform:uppercase;font-weight:700;">Lectura de 30 segundos</div>
+        <td style="padding:18px 28px 8px 28px;">
+          <div style="font-size:11px;letter-spacing:1.5px;color:{{ orange }};
+                      text-transform:uppercase;font-weight:800;">Lectura de 30 segundos</div>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-                 style="margin-top:10px;background:{{ soft_bg }};border-radius:6px;">
+                 style="margin-top:10px;background:{{ soft_bg }};border-radius:8px;">
             <tr>
               <td style="padding:16px 18px;font-size:15px;line-height:1.55;color:{{ text }};">
                 <ul style="margin:0;padding:0 0 0 18px;">
@@ -74,8 +110,8 @@ TEMPLATE = """\
       {% for area, items in grouped %}
       <tr>
         <td style="padding:18px 28px 0 28px;">
-          <div style="font-size:13px;letter-spacing:1px;color:{{ primary }};
-                      text-transform:uppercase;font-weight:700;border-bottom:2px solid {{ accent }};
+          <div style="font-size:13px;letter-spacing:1px;color:{{ black }};
+                      text-transform:uppercase;font-weight:800;border-bottom:3px solid {{ orange }};
                       padding-bottom:6px;">
             {{ area }}
           </div>
@@ -85,11 +121,11 @@ TEMPLATE = """\
       <tr>
         <td style="padding:14px 28px 0 28px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-                 style="border:1px solid #E1E7F0;border-radius:6px;">
+                 style="border:1px solid #F0E0D5;border-radius:8px;">
             <tr>
               <td style="padding:14px 16px 6px 16px;">
                 <a href="{{ item.article.url }}"
-                   style="color:{{ primary }};text-decoration:none;font-weight:600;font-size:16px;line-height:1.35;">
+                   style="color:{{ black }};text-decoration:none;font-weight:700;font-size:16px;line-height:1.35;">
                   {{ item.article.title }}
                 </a>
                 <div style="margin-top:4px;font-size:12px;color:{{ muted }};">
@@ -105,11 +141,11 @@ TEMPLATE = """\
             <tr>
               <td style="padding:6px 16px 6px 16px;">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-                       style="background:{{ soft_bg }};border-left:3px solid {{ accent }};">
+                       style="background:{{ soft_bg }};border-left:3px solid {{ orange }};">
                   <tr>
                     <td style="padding:10px 12px;font-size:13px;line-height:1.5;color:{{ text }};">
-                      <strong style="color:{{ primary }};">Por que importa a Win:</strong>
-                      {{ item.evaluation.why_matters_for_win }}
+                      <strong style="color:{{ orange }};">En simple:</strong>
+                      {{ item.evaluation.en_simple }}
                     </td>
                   </tr>
                 </table>
@@ -122,7 +158,7 @@ TEMPLATE = """\
                     <td style="font-size:11px;color:{{ muted }};padding-right:10px;">Relevancia</td>
                     {% for n in range(1, 11) %}
                     <td width="14" height="10"
-                        bgcolor="{% if n <= item.evaluation.relevance_score %}{{ accent }}{% else %}#DCE3ED{% endif %}"
+                        bgcolor="{% if n <= item.evaluation.relevance_score %}{{ orange }}{% else %}#EADFD6{% endif %}"
                         style="font-size:0;line-height:0;padding:0 1px;">&nbsp;</td>
                     {% endfor %}
                     <td style="font-size:11px;color:{{ muted }};padding-left:8px;">
@@ -138,15 +174,35 @@ TEMPLATE = """\
       {% endfor %}
       {% endfor %}
 
+      <!-- chiste -->
+      {% if briefing.chiste %}
+      <tr>
+        <td style="padding:20px 28px 4px 28px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                 style="background:{{ black }};border-radius:8px;">
+            <tr>
+              <td style="padding:16px 18px;color:#FFFFFF;">
+                <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:800;color:{{ yellow }};">
+                  Para cerrar con humor winner
+                </div>
+                <div style="margin-top:6px;font-size:15px;line-height:1.55;">{{ briefing.chiste }}</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      {% endif %}
+
       <!-- footer -->
       <tr>
-        <td style="padding:24px 28px 28px 28px;">
-          <hr style="border:0;border-top:1px solid #E1E7F0;margin:0 0 12px 0;">
-          <div style="font-size:12px;color:{{ muted }};line-height:1.5;">
-            Generado automaticamente por <strong>Agente Noticias Win Internet</strong>
+        <td style="padding:22px 28px 26px 28px;">
+          <hr style="border:0;border-top:1px solid #F0E0D5;margin:0 0 12px 0;">
+          <div style="font-size:15px;font-weight:800;color:{{ orange }};">Mente y actitud winner!</div>
+          <div style="margin-top:8px;font-size:12px;color:{{ muted }};line-height:1.5;">
+            Generado automaticamente por el <strong>Agente Noticias IA de Win</strong>
             con LangChain + LangGraph + Tavily.<br>
             Modelo: {{ model }} &middot; Proyecto LangSmith:
-            <span style="color:{{ primary }};">{{ project }}</span>
+            <span style="color:{{ orange }};">{{ project }}</span>
             {% if run_id %} &middot; run_id: <code style="font-size:11px;">{{ run_id }}</code>{% endif %}
           </div>
         </td>
@@ -162,13 +218,28 @@ TEMPLATE = """\
 """
 
 
-def _group_by_area(items: Iterable[EvaluatedArticle]) -> list[tuple[str, list[EvaluatedArticle]]]:
-    """Agrupa articulos por la primera area de impacto declarada."""
-    grouped: OrderedDict[str, list[EvaluatedArticle]] = OrderedDict()
+def _group_by_category(
+    items: Iterable[EvaluatedArticle],
+) -> list[tuple[str, list[EvaluatedArticle]]]:
+    """Agrupa articulos por categoria, respetando el orden de CATEGORIAS."""
+    grouped: OrderedDict[str, list[EvaluatedArticle]] = OrderedDict(
+        (cat, []) for cat in CATEGORIAS
+    )
     for it in items:
-        area = it.evaluation.impact_areas[0] if it.evaluation.impact_areas else "Mercado y Negocio"
+        area = it.evaluation.category or "Industria"
         grouped.setdefault(area, []).append(it)
-    return list(grouped.items())
+    return [(area, its) for area, its in grouped.items() if its]
+
+
+def logo_data_uri() -> str:
+    """Devuelve el logo como data URI base64 (para el preview en navegador)."""
+    try:
+        if LOGO_PATH.exists():
+            data = base64.b64encode(LOGO_PATH.read_bytes()).decode("ascii")
+            return f"data:image/png;base64,{data}"
+    except Exception:  # noqa: BLE001
+        pass
+    return ""
 
 
 def render_email(
@@ -177,19 +248,23 @@ def render_email(
     model: str,
     project: str,
     run_id: str = "",
+    logo_src: str = "",
 ) -> str:
+    """Renderiza el correo. `logo_src` es el src del logo (data URI o cid:winlogo)."""
     env = Environment(autoescape=select_autoescape(["html", "xml"]))
     template = env.from_string(TEMPLATE)
     return template.render(
         briefing=briefing,
-        grouped=_group_by_area(selected),
+        grouped=_group_by_category(selected),
         today=date.today().strftime("%d/%m/%Y"),
-        primary=PRIMARY_COLOR,
-        accent=ACCENT_COLOR,
+        orange=ORANGE,
+        yellow=YELLOW,
+        black=BLACK,
         soft_bg=SOFT_BG,
         text=TEXT_COLOR,
         muted=MUTED_COLOR,
         model=model,
         project=project,
         run_id=run_id,
+        logo_src=logo_src,
     )

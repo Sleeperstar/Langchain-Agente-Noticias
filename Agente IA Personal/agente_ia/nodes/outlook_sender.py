@@ -1,14 +1,10 @@
 """Outlook sender node: usa pywin32 contra la sesion activa de Outlook Desktop."""
 from __future__ import annotations
 
-from agente_noticias.config import LOGO_PATH, get_recipients
-from agente_noticias.state import NewsState
+from agente_ia.config import get_recipient
+from agente_ia.state import NewsState
 
 OL_MAIL_ITEM = 0  # constante COM olMailItem
-OL_BY_VALUE = 1  # olByValue para adjuntos
-# Property tags MAPI para embeber el logo por Content-ID.
-PR_ATTACH_CONTENT_ID = "http://schemas.microsoft.com/mapi/proptag/0x3712001F"
-PR_ATTACH_HIDDEN = "http://schemas.microsoft.com/mapi/proptag/0x7FFE000B"
 
 
 def _send_via_outlook(to: str, subject: str, html_body: str) -> str:
@@ -41,22 +37,6 @@ def _send_via_outlook(to: str, subject: str, html_body: str) -> str:
         mail = outlook.CreateItem(OL_MAIL_ITEM)
         mail.To = to
         mail.Subject = subject
-
-        # Embeber el logo por CID si existe (metodo robusto para Outlook).
-        if LOGO_PATH.exists() and "cid:winlogo" in html_body:
-            try:
-                attachment = mail.Attachments.Add(
-                    Source=str(LOGO_PATH),
-                    Type=OL_BY_VALUE,
-                    Position=0,
-                    DisplayName="winlogo",
-                )
-                pa = attachment.PropertyAccessor
-                pa.SetProperty(PR_ATTACH_CONTENT_ID, "winlogo")
-                pa.SetProperty(PR_ATTACH_HIDDEN, True)
-            except Exception as exc:  # noqa: BLE001
-                print(f"[outlook_sender] no se pudo embeber el logo: {exc}")
-
         mail.HTMLBody = html_body
         mail.Send()
         return f"Correo enviado a {to} via Outlook Desktop."
@@ -66,9 +46,8 @@ def _send_via_outlook(to: str, subject: str, html_body: str) -> str:
 
 def outlook_sender_node(state: NewsState) -> dict:
     """Nodo del grafo que envia el correo (flujo automatico, sin HITL)."""
-    recipients = get_recipients()
-    to = "; ".join(recipients)
-    subject = state.get("subject") or "Briefing IA - Win Internet"
+    to = get_recipient()
+    subject = state.get("subject") or "Briefing IA - AI Engineer"
     html_body = state.get("html_body") or ""
 
     result = _send_via_outlook(to=to, subject=subject, html_body=html_body)

@@ -1,18 +1,14 @@
-"""Evaluator node: el LLM puntua relevancia, asigna categoria y resume.
-
-Solo puntua cada noticia de forma independiente. La seleccion final y la
-diferenciacion de scores las hace el nodo `ranker`.
-"""
+"""Evaluator node: el LLM puntua relevancia, asigna categoria y resume."""
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from langchain.chat_models import init_chat_model
 
-from agente_noticias.config import get_model
-from agente_noticias.prompts import EVALUATOR_SYSTEM, EVALUATOR_USER_TEMPLATE
-from agente_noticias.schemas import Article, ArticleEvaluation, EvaluatedArticle
-from agente_noticias.state import NewsState
+from agente_ia.config import get_model
+from agente_ia.prompts import EVALUATOR_SYSTEM, EVALUATOR_USER_TEMPLATE
+from agente_ia.schemas import Article, ArticleEvaluation, EvaluatedArticle
+from agente_ia.state import NewsState
 
 
 def _build_evaluator():
@@ -44,6 +40,8 @@ def _evaluate_one(article: Article) -> EvaluatedArticle | None:
 
 
 def evaluator_node(state: NewsState) -> dict:
+    """Puntua cada noticia de forma independiente. La seleccion final y la
+    diferenciacion de scores las hace el nodo `ranker`."""
     articles = state.get("raw_articles", []) or []
     if not articles:
         return {"scored_articles": []}

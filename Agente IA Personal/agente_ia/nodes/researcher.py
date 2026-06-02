@@ -1,14 +1,45 @@
 """Researcher node: ejecuta varias queries en Tavily y devuelve articulos deduplicados."""
 from __future__ import annotations
 
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from difflib import SequenceMatcher
 
 from langchain_tavily import TavilySearch
 
-from agente_noticias.config import SEARCH_QUERIES
-from agente_noticias.schemas import Article
-from agente_noticias.state import NewsState
-from agente_noticias.text_utils import is_near_duplicate, normalize_title
+from agente_ia.config import SEARCH_QUERIES, TITLE_SIMILARITY_THRESHOLD
+from agente_ia.schemas import Article
+from agente_ia.state import NewsState
+
+_STOPWORDS = {
+    "the", "a", "an", "and", "or", "of", "to", "in", "on", "for", "with",
+    "new", "now", "is", "are", "el", "la", "los", "las", "un", "una", "de",
+    "y", "o", "en", "con", "su", "que", "se",
+}
+
+
+def _normalize_title(title: str) -> str:
+    """Normaliza un titulo para comparar: minusculas, sin puntuacion ni stopwords."""
+    text = re.sub(r"[^\w\s]", " ", title.lower())
+    tokens = [t for t in text.split() if t and t not in _STOPWORDS]
+    return " ".join(tokens)
+
+
+def _is_near_duplicate(norm_title: str, kept_norm_titles: list[str]) -> bool:
+    """True si el titulo normalizado es muy similar a alguno ya conservado."""
+    for other in kept_norm_titles:
+        if not norm_title or not other:
+            continue
+        # Coincidencia por solapamiento de tokens o por ratio de similitud.
+        ratio = SequenceMatcher(None, norm_title, other).ratio()
+        if ratio >= TITLE_SIMILARITY_THRESHOLD:
+            return True
+        a, b = set(norm_title.split()), set(other.split())
+        if a and b:
+            overlap = len(a & b) / min(len(a), len(b))
+            if overlap >= TITLE_SIMILARITY_THRESHOLD:
+                return True
+    return False
 
 
 def _run_single_query(spec: dict) -> list[Article]:
@@ -34,7 +65,7 @@ def _run_single_query(spec: dict) -> list[Article]:
 
 
 def researcher_node(state: NewsState) -> dict:
-    """Lanza las queries en paralelo y deduplica por URL y por titulo similar."""
+    """Lanza las queries en paralelo y deduplica por URL."""
     all_articles: list[Article] = []
 
     with ThreadPoolExecutor(max_workers=min(5, len(SEARCH_QUERIES))) as pool:
@@ -55,8 +86,8 @@ def researcher_node(state: NewsState) -> dict:
     for a in sorted(all_articles, key=lambda x: x.score, reverse=True):
         if not a.url or a.url in seen_urls:
             continue
-        norm = normalize_title(a.title)
-        if is_near_duplicate(norm, kept_norm_titles):
+        norm = _normalize_title(a.title)
+        if _is_near_duplicate(norm, kept_norm_titles):
             continue
         seen_urls.add(a.url)
         kept_norm_titles.append(norm)

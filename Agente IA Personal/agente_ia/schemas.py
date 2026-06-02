@@ -6,11 +6,11 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 CategoriaIA = Literal[
-    "Nuevos modelos",
-    "IA agentica",
-    "Herramientas y productos",
-    "Investigacion",
-    "Industria",
+    "Nuevos modelos (LLMs/Multimodal)",
+    "IA agentica y agentes",
+    "Frameworks y tooling",
+    "Research y papers",
+    "Industria y carrera",
 ]
 
 
@@ -27,7 +27,7 @@ class Article(BaseModel):
 
 
 class ArticleEvaluation(BaseModel):
-    """Evaluacion del LLM para una noticia, pensada para una audiencia general."""
+    """Evaluacion del LLM para una noticia, desde la perspectiva de un AI Engineer."""
 
     reasoning: str = Field(
         ...,
@@ -41,8 +41,8 @@ class ArticleEvaluation(BaseModel):
         ge=0,
         le=10,
         description=(
-            "Que tan importante/interesante es la noticia para una audiencia general "
-            "interesada en IA (0-10). Usa todo el rango, no concentres todo en 8-9."
+            "Relevancia para un AI Engineer interesado en nuevos modelos e IA "
+            "agentica (0-10). Usa todo el rango, no concentres todo en 8-9."
         ),
     )
     category: CategoriaIA = Field(
@@ -51,13 +51,23 @@ class ArticleEvaluation(BaseModel):
     )
     summary_es: str = Field(
         ...,
-        description="Resumen en espanol, 2-3 frases, claro y sin marketing.",
+        description=(
+            "Resumen en espanol, 2-3 frases, claro y sin marketing. Manten los "
+            "terminos tecnicos en ingles (p. ej. 'context window', 'tool calling')."
+        ),
     )
-    en_simple: str = Field(
+    why_relevant: str = Field(
         ...,
         description=(
-            "Explicacion en lenguaje MUY sencillo (1-2 frases) para alguien sin "
-            "conocimientos tecnicos: que es y por que deberia importarle. Sin jerga."
+            "Por que le importa a alguien que quiere ser AI Engineer (1-2 frases, "
+            "en espanol)."
+        ),
+    )
+    what_to_learn: str = Field(
+        ...,
+        description=(
+            "Un concepto, skill o herramienta concreta a explorar a partir de esta "
+            "noticia (frase corta; nombres tecnicos en ingles)."
         ),
     )
 
@@ -81,7 +91,7 @@ class RankedSelection(BaseModel):
         le=10,
         description=(
             "Importancia relativa DIFERENCIADA (1-10). Evita empates: solo la noticia "
-            "mas trascendente de la semana llega a 10."
+            "mas trascendente del dia llega a 10."
         ),
     )
     rationale: str = Field(
@@ -105,25 +115,15 @@ class Ranking(BaseModel):
 class Briefing(BaseModel):
     """Briefing consolidado para el correo."""
 
-    headline: str = Field(..., description="Titulo principal del briefing.")
+    headline: str = Field(..., description="Titulo principal del briefing (espanol).")
     tldr: list[str] = Field(
-        ..., description="3 bullets ejecutivos en espanol (lectura de 30 segundos)."
+        ...,
+        description="Exactamente 3 bullets ejecutivos en espanol (lectura de 30 segundos).",
     )
-    concepto_titulo: str = Field(
-        default="",
-        description='Titulo del "concepto del dia" (p. ej. "Que es Markdown?").',
-    )
-    concepto_explicacion: str = Field(
-        default="",
+    skill_of_the_day: str = Field(
+        ...,
         description=(
-            "Explicacion del concepto del dia en 2-3 frases, en lenguaje sencillo para "
-            "principiantes."
-        ),
-    )
-    chiste: str = Field(
-        default="",
-        description=(
-            "Un chiste corto y ligero sobre IA/tecnologia, en tono fresco y amigable "
-            "(sin lisuras, sin temas sensibles), para cerrar el correo con personalidad."
+            "Una recomendacion concreta de skill/concepto para estudiar hoy, derivada "
+            "de las noticias (1 frase; terminos tecnicos en ingles)."
         ),
     )

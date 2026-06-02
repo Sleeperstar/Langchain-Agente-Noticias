@@ -1,14 +1,14 @@
-"""Summarizer node: produce headline + TL;DR + concepto del dia + chiste."""
+"""Summarizer node: produce headline + TL;DR + skill del dia."""
 from __future__ import annotations
 
 from datetime import date
 
 from langchain.chat_models import init_chat_model
 
-from agente_noticias.config import get_model
-from agente_noticias.prompts import SUMMARIZER_SYSTEM, SUMMARIZER_USER_TEMPLATE
-from agente_noticias.schemas import Briefing
-from agente_noticias.state import NewsState
+from agente_ia.config import get_model
+from agente_ia.prompts import SUMMARIZER_SYSTEM, SUMMARIZER_USER_TEMPLATE
+from agente_ia.schemas import Briefing
+from agente_ia.state import NewsState
 
 
 def _format_articles_block(selected) -> str:
@@ -19,7 +19,8 @@ def _format_articles_block(selected) -> str:
             f"{i}. [{e.relevance_score}/10] {a.title}\n"
             f"   Categoria: {e.category}\n"
             f"   Resumen: {e.summary_es}\n"
-            f"   En simple: {e.en_simple}\n"
+            f"   Por que importa: {e.why_relevant}\n"
+            f"   Que aprender: {e.what_to_learn}\n"
             f"   Fuente: {a.source} | {a.url}\n"
         )
     return "\n".join(lines)
@@ -31,15 +32,13 @@ def summarizer_node(state: NewsState) -> dict:
     if not selected:
         return {
             "briefing": Briefing(
-                headline=f"Briefing IA Win - {date.today().isoformat()} (sin noticias relevantes)",
+                headline=f"Briefing IA Personal - {date.today().isoformat()} (sin noticias relevantes)",
                 tldr=[
                     "No se encontraron noticias con score de relevancia suficiente.",
                     "Considera ampliar las queries o el rango temporal en config.py.",
                     "El agente igual queda trazado en LangSmith para revision.",
                 ],
-                concepto_titulo="",
-                concepto_explicacion="",
-                chiste="",
+                skill_of_the_day="Revisa tus SEARCH_QUERIES y prueba ampliar el time_range.",
             )
         }
 
@@ -60,9 +59,7 @@ def summarizer_node(state: NewsState) -> dict:
         briefing = Briefing(
             headline=f"{briefing.headline} - {today}",
             tldr=briefing.tldr[:3] if len(briefing.tldr) > 3 else briefing.tldr,
-            concepto_titulo=briefing.concepto_titulo,
-            concepto_explicacion=briefing.concepto_explicacion,
-            chiste=briefing.chiste,
+            skill_of_the_day=briefing.skill_of_the_day,
         )
 
     print(f"[summarizer] headline: {briefing.headline}")

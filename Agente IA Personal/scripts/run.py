@@ -1,9 +1,9 @@
-"""Ejecuta el Agente Noticias IA (Win Internet) end-to-end.
+"""Ejecuta el Agente IA Personal end-to-end.
 
 Uso basico:
 
     uv run python scripts/run.py                  # busca, arma briefing y envia por Outlook
-    uv run python scripts/run.py --dry-run        # solo genera el preview, NO envia ni guarda
+    uv run python scripts/run.py --dry-run        # solo genera el preview, NO envia
     uv run python scripts/run.py --headless       # no abre el navegador con el preview
     uv run python scripts/run.py --model gpt-5-mini   # override del modelo
     uv run python scripts/run.py --thread mi-id   # custom thread_id (LangGraph)
@@ -24,9 +24,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Agente Noticias IA - Win Internet")
+    parser = argparse.ArgumentParser(description="Agente IA Personal")
     parser.add_argument("--dry-run", action="store_true",
-                        help="Genera el preview HTML pero NO envia ni guarda historial.")
+                        help="Genera el preview HTML pero NO envia el correo.")
     parser.add_argument("--headless", action="store_true",
                         help="No abre el preview en el navegador.")
     parser.add_argument("--model", type=str, default=None,
@@ -50,14 +50,14 @@ def main() -> int:
     if args.model:
         os.environ["NEWS_MODEL"] = args.model
 
-    import agente_noticias  # noqa: F401  (dispara load_environment)
-    from agente_noticias.config import get_model, get_recipients
-    from agente_noticias.graph import build_graph, default_config
+    import agente_ia  # noqa: F401  (dispara load_environment)
+    from agente_ia.config import get_model, get_recipient
+    from agente_ia.graph import build_graph, default_config
 
-    thread_id = args.thread or f"agente-noticias-{date.today().isoformat()}-{uuid.uuid4().hex[:6]}"
+    thread_id = args.thread or f"agente-ia-personal-{date.today().isoformat()}-{uuid.uuid4().hex[:6]}"
     config = default_config(thread_id=thread_id)
     print(f"[run] thread_id={thread_id}  project={os.getenv('LANGSMITH_PROJECT')}")
-    print(f"[run] modelo={get_model()}  destinatarios={', '.join(get_recipients())}")
+    print(f"[run] modelo={get_model()}  destinatario={get_recipient()}")
 
     graph = build_graph(send=not args.dry_run)
     result = graph.invoke({}, config)
@@ -68,21 +68,18 @@ def main() -> int:
         print(f"Asunto:           {result.get('subject')}")
         print(f"Archivo preview:  {result.get('preview_path')}")
         print(f"Articulos:        {len(result.get('selected_articles', []) or [])}")
-        print(f"Descartadas hist: {result.get('dropped_by_history', 0)}")
         print("TL;DR:")
         for b in briefing.tldr:
             print(f"  - {b}")
-        if briefing.concepto_titulo:
-            print(f"Concepto del dia: {briefing.concepto_titulo}")
+        print(f"Skill del dia:    {briefing.skill_of_the_day}")
 
     if not args.headless and result.get("preview_path"):
         _open_preview(result["preview_path"])
 
     if args.dry_run:
-        print("\n[run] --dry-run activado: no se envio ni se guardo historial.")
+        print("\n[run] --dry-run activado: no se envio el correo.")
     else:
-        print(f"\n[run] resultado envio:  {result.get('send_result', '(sin send_result)')}")
-        print(f"[run] briefing_id:      {result.get('briefing_id', '(no guardado)')}")
+        print(f"\n[run] resultado envio: {result.get('send_result', '(sin send_result)')}")
 
     print(f"[run] run_id: {result.get('run_id')}")
     return 0
