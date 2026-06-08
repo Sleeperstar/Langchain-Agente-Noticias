@@ -101,13 +101,54 @@ uv run python scripts/run.py --headless   # no abre el navegador
 uv run python scripts/run.py --model gpt-5-mini
 ```
 
+## Interfaz web (recomendada para uso diario)
+
+```bash
+uv run python scripts/serve.py
+# abre http://127.0.0.1:8800
+```
+
+App local con el look & feel de Win para operar el agente sin tocar codigo:
+
+1. Boton "Enviar Correo Noticias IA Semanal" -> genera el borrador mostrando el
+   flujo de los agentes EN VIVO (cada nodo se ilumina conforme corre).
+2. Revisa las 5 noticias (titulo, resumen, "en simple", categoria, relevancia),
+   el concepto del dia y el chiste.
+3. Edita lo que no te guste:
+   - "Regenerar con otra noticia": cambia esa noticia por el siguiente mejor
+     candidato ya encontrado.
+   - "Cambiar por un tema...": escribes un tema y el agente busca una noticia de
+     ese tema (Tavily) y reemplaza esa seccion.
+   - Concepto del dia: "Regenerar concepto" (elige otro sin repetir los de semanas
+     anteriores) o escribe tu propio concepto/tema y pulsa "Usar mi concepto".
+   - "Regenerar chiste": genera uno nuevo (sin repetir los de semanas anteriores,
+     validado contra Supabase).
+4. "Ver correo" -> vista previa real del correo en una ventana.
+5. "Enviar correo" -> manda el correo por Outlook y guarda el historial en Supabase.
+
+Requiere Outlook Desktop abierto para el envio. El flujo completo tambien queda
+trazado en LangSmith (`agente-noticias-win`).
+
 ## LangGraph Studio
 
 ```bash
-uv run --extra studio langgraph dev
+uv run --extra studio langgraph dev --no-reload --allow-blocking
+# o el atajo:
+powershell -ExecutionPolicy Bypass -File scripts/studio.ps1
 ```
 
 Lee `langgraph.json` (grafo `agente_noticias`) y muestra todos los nodos del flujo.
+Abre la URL que imprime (algo como
+`https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024`), deja el input
+en `{}` y presiona **Submit**.
+
+> [!IMPORTANT]
+> Usa SIEMPRE `--no-reload`. Sin esa bandera, el auto-reload de `langgraph dev`
+> vigila la carpeta del proyecto; como el runtime escribe su estado en
+> `.langgraph_api/` (y se genera `output/preview.html`), entra en un bucle de
+> recargas que **re-ejecuta el grafo y envia el correo dos veces** con un solo
+> Submit. `--allow-blocking` evita que el servidor de dev marque como problema las
+> llamadas bloqueantes de los nodos (Tavily, OpenAI, Outlook, Supabase).
 
 ## Historial anti-repeticion (Supabase)
 

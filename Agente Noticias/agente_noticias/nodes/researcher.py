@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from langchain_tavily import TavilySearch
 
+from agente_noticias._concurrency import submit_with_context
 from agente_noticias.config import SEARCH_QUERIES
 from agente_noticias.schemas import Article
 from agente_noticias.state import NewsState
@@ -38,7 +39,10 @@ def researcher_node(state: NewsState) -> dict:
     all_articles: list[Article] = []
 
     with ThreadPoolExecutor(max_workers=min(5, len(SEARCH_QUERIES))) as pool:
-        futures = {pool.submit(_run_single_query, spec): spec for spec in SEARCH_QUERIES}
+        futures = {
+            submit_with_context(pool, _run_single_query, spec): spec
+            for spec in SEARCH_QUERIES
+        }
         for fut in as_completed(futures):
             try:
                 all_articles.extend(fut.result())

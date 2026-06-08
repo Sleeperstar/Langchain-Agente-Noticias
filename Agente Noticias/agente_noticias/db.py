@@ -50,12 +50,64 @@ def fetch_recent_sent(weeks: int) -> list[dict]:
         return []
 
 
+def fetch_recent_jokes(weeks: int) -> list[str]:
+    """Devuelve los chistes enviados en las ultimas `weeks` semanas (texto)."""
+    client = get_client()
+    if client is None:
+        return []
+
+    since = (datetime.now(timezone.utc) - timedelta(weeks=weeks)).isoformat()
+    try:
+        resp = (
+            client.schema(SCHEMA)
+            .table("briefings")
+            .select("joke")
+            .gte("sent_at", since)
+            .execute()
+        )
+        return [row.get("joke", "") for row in (resp.data or []) if row.get("joke")]
+    except Exception as exc:  # noqa: BLE001
+        print(f"[db] fallo consultando chistes: {exc}")
+        return []
+
+
+def fetch_recent_concepts(weeks: int) -> list[str]:
+    """Devuelve los titulos de 'concepto del dia' usados en las ultimas `weeks` semanas."""
+    client = get_client()
+    if client is None:
+        return []
+
+    since = (datetime.now(timezone.utc) - timedelta(weeks=weeks)).isoformat()
+    try:
+        resp = (
+            client.schema(SCHEMA)
+            .table("briefings")
+            .select("concepto_titulo")
+            .gte("sent_at", since)
+            .execute()
+        )
+        return [
+            row.get("concepto_titulo", "")
+            for row in (resp.data or [])
+            if row.get("concepto_titulo")
+        ]
+    except Exception as exc:  # noqa: BLE001
+        # Probablemente la columna aun no existe (migracion pendiente): degradamos.
+        print(f"[db] fallo consultando conceptos: {exc}")
+        return []
+
+
 def save_briefing(
     subject: str,
     recipients: str,
     run_id: str,
     langsmith_project: str,
     articles: list[dict],
+    joke: str = "",
+    joke_normalized: str = "",
+    concepto_titulo: str = "",
+    concepto_explicacion: str = "",
+    concepto_normalized: str = "",
 ) -> str:
     """Inserta un briefing y sus articulos. Devuelve el briefing_id o '' si fallo.
 
@@ -69,21 +121,39 @@ def save_briefing(
     now = datetime.now(timezone.utc)
     week_iso = f"{now.isocalendar().year}-W{now.isocalendar().week:02d}"
 
+    base_row = {
+        "subject": subject,
+        "recipients": recipients,
+        "run_id": run_id,
+        "article_count": len(articles),
+        "langsmith_project": langsmith_project,
+        "joke": joke,
+        "joke_normalized": joke_normalized,
+    }
+    concept_row = {
+        "concepto_titulo": concepto_titulo,
+        "concepto_explicacion": concepto_explicacion,
+        "concepto_normalized": concepto_normalized,
+    }
+
     try:
-        briefing_resp = (
-            client.schema(SCHEMA)
-            .table("briefings")
-            .insert(
-                {
-                    "subject": subject,
-                    "recipients": recipients,
-                    "run_id": run_id,
-                    "article_count": len(articles),
-                    "langsmith_project": langsmith_project,
-                }
+        try:
+            briefing_resp = (
+                client.schema(SCHEMA)
+                .table("briefings")
+                .insert({**base_row, **concept_row})
+                .execute()
             )
-            .execute()
-        )
+        except Exception as exc:  # noqa: BLE001
+            # Si las columnas del concepto aun no existen (migracion pendiente),
+            # reintentamos sin ellas para no perder el historial de noticias/chiste.
+            print(f"[db] insert con concepto fallo ({exc}); reintento sin concepto")
+            briefing_resp = (
+                client.schema(SCHEMA)
+                .table("briefings")
+                .insert(base_row)
+                .execute()
+            )
         briefing_id = (briefing_resp.data or [{}])[0].get("id", "")
         if not briefing_id:
             return ""

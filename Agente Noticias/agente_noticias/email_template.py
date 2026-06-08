@@ -47,9 +47,9 @@ TEMPLATE = """\
             <tr>
               <td align="left" style="vertical-align:middle;">
                 {% if logo_src %}
-                <img src="{{ logo_src }}" alt="WIN" height="34" style="height:34px;display:block;border:0;">
+                <img src="{{ logo_src }}" alt="WIN" height="78" style="height:78px;display:block;border:0;">
                 {% else %}
-                <span style="font-size:30px;font-weight:800;color:#FFFFFF;letter-spacing:-1px;">win</span>
+                <span style="font-size:60px;font-weight:800;color:#FFFFFF;letter-spacing:-1px;">win</span>
                 {% endif %}
               </td>
               <td align="right" style="vertical-align:middle;font-size:12px;color:#FFE6D5;">
@@ -155,13 +155,25 @@ TEMPLATE = """\
               <td style="padding:6px 16px 14px 16px;">
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                   <tr>
-                    <td style="font-size:11px;color:{{ muted }};padding-right:10px;">Relevancia</td>
-                    {% for n in range(1, 11) %}
-                    <td width="14" height="10"
-                        bgcolor="{% if n <= item.evaluation.relevance_score %}{{ orange }}{% else %}#EADFD6{% endif %}"
-                        style="font-size:0;line-height:0;padding:0 1px;">&nbsp;</td>
-                    {% endfor %}
-                    <td style="font-size:11px;color:{{ muted }};padding-left:8px;">
+                    <td style="font-size:11px;color:{{ muted }};padding-right:10px;white-space:nowrap;">Relevancia</td>
+                    <td>
+                      <table role="presentation" width="140" cellpadding="0" cellspacing="0" border="0"
+                             style="width:140px;background:#EADFD6;border-radius:5px;">
+                        <tr>
+                          <td height="9" style="font-size:0;line-height:0;">
+                            <table role="presentation" width="{{ item.evaluation.relevance_score * 10 }}%"
+                                   cellpadding="0" cellspacing="0" border="0"
+                                   style="width:{{ item.evaluation.relevance_score * 10 }}%;">
+                              <tr>
+                                <td height="9" bgcolor="{{ orange }}"
+                                    style="font-size:0;line-height:0;border-radius:5px;">&nbsp;</td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                    <td style="font-size:11px;color:{{ muted }};padding-left:8px;white-space:nowrap;">
                       {{ item.evaluation.relevance_score }}/10
                     </td>
                   </tr>

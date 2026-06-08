@@ -102,6 +102,49 @@ class Ranking(BaseModel):
     )
 
 
+class ConceptOut(BaseModel):
+    """Salida estructurada para (re)generar el 'concepto del dia'."""
+
+    concepto_titulo: str = Field(
+        ...,
+        description='Titulo del concepto en forma de pregunta (p. ej. "Que es Markdown?").',
+    )
+    concepto_explicacion: str = Field(
+        ...,
+        description=(
+            "Explicacion SUPER simple en 2-3 frases para principiantes, con un "
+            "ejemplo cotidiano si ayuda."
+        ),
+    )
+
+
+class JokeOut(BaseModel):
+    """Salida estructurada para (re)generar solo el chiste."""
+
+    chiste: str = Field(
+        ...,
+        description=(
+            "Un chiste corto y ligero sobre IA/tecnologia, en tono fresco y amigable "
+            "(sin lisuras, sin temas sensibles, sin politica ni religion)."
+        ),
+    )
+
+
+class BriefingText(BaseModel):
+    """Textos del briefing SIN el chiste (para refrescar al editar noticias)."""
+
+    headline: str = Field(..., description="Titulo principal del briefing.")
+    tldr: list[str] = Field(
+        ..., description="3 bullets ejecutivos en espanol (lectura de 30 segundos)."
+    )
+    concepto_titulo: str = Field(
+        default="", description='Titulo del "concepto del dia".'
+    )
+    concepto_explicacion: str = Field(
+        default="", description="Explicacion del concepto del dia (2-3 frases simples)."
+    )
+
+
 class Briefing(BaseModel):
     """Briefing consolidado para el correo."""
 

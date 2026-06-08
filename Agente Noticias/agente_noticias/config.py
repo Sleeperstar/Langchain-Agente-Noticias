@@ -37,6 +37,13 @@ def load_environment() -> None:
     os.environ["LANGSMITH_PROJECT"] = os.getenv(
         "LANGSMITH_PROJECT_OVERRIDE", DEFAULT_PROJECT
     )
+
+    # Alias por compatibilidad: algunas versiones de langchain leen las variables
+    # con prefijo LANGCHAIN_ en vez de LANGSMITH_. Las dejamos sincronizadas para
+    # asegurar que las trazas (tokens y costo) caigan en el proyecto correcto.
+    os.environ["LANGCHAIN_TRACING_V2"] = os.environ["LANGSMITH_TRACING"]
+    os.environ["LANGCHAIN_PROJECT"] = os.environ["LANGSMITH_PROJECT"]
+
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 

@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from langchain.chat_models import init_chat_model
 
+from agente_noticias._concurrency import submit_with_context
 from agente_noticias.config import get_model
 from agente_noticias.prompts import EVALUATOR_SYSTEM, EVALUATOR_USER_TEMPLATE
 from agente_noticias.schemas import Article, ArticleEvaluation, EvaluatedArticle
@@ -50,7 +51,7 @@ def evaluator_node(state: NewsState) -> dict:
 
     scored: list[EvaluatedArticle] = []
     with ThreadPoolExecutor(max_workers=6) as pool:
-        futures = [pool.submit(_evaluate_one, a) for a in articles]
+        futures = [submit_with_context(pool, _evaluate_one, a) for a in articles]
         for fut in as_completed(futures):
             result = fut.result()
             if result is not None:

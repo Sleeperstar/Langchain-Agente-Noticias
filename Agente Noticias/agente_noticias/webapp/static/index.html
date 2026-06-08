@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agente Noticias IA - Win</title>
+  <link rel="stylesheet" href="/static/styles.css?v=2">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img id="logo" src="/api/logo" alt="WIN" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'wordmark',textContent:'win'}))">
+      <div class="brand-claim">El internet de los winners</div>
+    </div>
+    <div class="topbar-right">Agente Noticias IA &middot; Briefing semanal</div>
+  </header>
+
+  <main class="wrap">
+    <!-- Paso 1: generar -->
+    <section id="hero" class="card hero">
+      <h1>Briefing semanal de Noticias IA</h1>
+      <p class="muted">Genera el borrador, revisa y edita las 5 noticias y el chiste, y cuando todo este conforme, envia el correo a los directivos.</p>
+      <button id="btn-generate" class="btn btn-primary btn-lg">Enviar Correo Noticias IA Semanal</button>
+      <p class="hint muted">Se abrira el flujo de los agentes y luego podras revisar antes de enviar.</p>
+    </section>
+
+    <!-- Visor de flujo en vivo -->
+    <section id="flow" class="card hidden">
+      <div class="section-title">Flujo de los agentes</div>
+      <div id="flow-nodes" class="flow-nodes"></div>
+      <div id="flow-log" class="flow-log"></div>
+      <a id="langsmith-link" class="muted small" href="https://smith.langchain.com" target="_blank" rel="noreferrer">Ver traza completa en LangSmith &rarr;</a>
+    </section>
+
+    <!-- Borrador editable -->
+    <section id="draft" class="hidden">
+      <div class="card">
+        <div class="section-title">Resumen del briefing</div>
+        <h2 id="headline"></h2>
+        <ul id="tldr" class="tldr"></ul>
+      </div>
+
+      <div class="card concept-card">
+        <div class="section-title">Concepto del dia</div>
+        <div class="concepto">
+          <div id="concepto-titulo" class="ct"></div>
+          <div id="concepto-exp"></div>
+        </div>
+        <div class="concept-actions">
+          <button id="btn-concept" class="btn btn-ghost btn-mini">Regenerar concepto</button>
+          <div class="concept-custom">
+            <input id="concept-input" type="text" placeholder="O escribe tu propio concepto/tema (ej: que es un LLM)" />
+            <button id="btn-concept-custom" class="btn btn-ghost btn-mini">Usar mi concepto</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title big">Las 5 noticias seleccionadas</div>
+      <div id="articles"></div>
+
+      <div class="card joke-card">
+        <div class="section-title">Chiste de cierre</div>
+        <p id="joke" class="joke-text"></p>
+        <button id="btn-joke" class="btn btn-ghost">Regenerar chiste</button>
+      </div>
+
+      <div class="actions-bar">
+        <button id="btn-preview" class="btn btn-secondary">Ver correo</button>
+        <button id="btn-send" class="btn btn-primary">Enviar correo</button>
+        <span id="send-status" class="muted"></span>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal preview -->
+  <div id="preview-modal" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-head">
+        <strong>Vista previa del correo</strong>
+        <button id="btn-close-preview" class="btn btn-ghost">Cerrar</button>
+      </div>
+      <iframe id="preview-frame" title="preview"></iframe>
+    </div>
+  </div>
+
+  <!-- Modal cambiar por tema -->
+  <div id="topic-modal" class="modal hidden">
+    <div class="modal-box small">
+      <div class="modal-head">
+        <strong>Cambiar por un tema especifico</strong>
+        <button id="btn-close-topic" class="btn btn-ghost">Cerrar</button>
+      </div>
+      <div class="modal-body">
+        <p class="muted">Escribe un tema y el agente buscara una noticia de ese tema para reemplazar esta seccion.</p>
+        <input id="topic-input" type="text" placeholder="Ej: nuevo modelo de video de Google" />
+        <button id="btn-topic-search" class="btn btn-primary">Buscar y reemplazar</button>
+        <p id="topic-status" class="muted small"></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/static/app.js?v=2"></script>
+</body>
+</html>
