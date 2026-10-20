@@ -12,6 +12,26 @@ politicos ni religiosos. Frases cortas, directas y faciles de leer en el celular
 A los lectores los tratamos como "winners".
 """.strip()
 
+# Joke craft rules. Kept separate from BRAND_VOICE on purpose: the motivational
+# "winners" voice turned jokes into pep talks with no punchline.
+JOKE_CRAFT = """
+  - Estructura de chiste real: una situacion o pregunta corta (preparacion) y un REMATE
+    final inesperado que cambia el sentido. La gracia esta en la ultima frase.
+  - Formatos que funcionan: pregunta y respuesta ("-¿Por que...? -Porque..."), dialogo
+    corto entre dos personajes (persona e IA, jefe y asistente virtual), o juego de
+    palabras con terminos de tecnologia (nube, virus, red, raton, ventanas, bug).
+  - Situaciones de oficina reconocibles: reuniones eternas, "¿probaste apagar y prender?",
+    el wifi, la impresora, contraseñas, el lunes, el correo "responder a todos".
+  - Maximo 3 lineas. Lenguaje simple: lo entiende cualquier persona sin saber de IA.
+  - PROHIBIDO: frases motivacionales, moralejas, cerrar con "winners", "¡vamos!" o
+    "sonrie", y explicar el chiste. Si no tiene remate, no es un chiste.
+  - Para todo publico: sin lisuras, politica, religion ni burlas a personas o grupos.
+  Ejemplos del estilo buscado (NO los copies):
+  - "-¿Por que la IA nunca juega a las escondidas? -Porque siempre la terminan rastreando."
+  - "Le pedi a la IA que me ayudara a ahorrar tiempo. Ahora tengo 30 minutos libres...
+    que uso para revisar lo que hizo la IA."
+""".rstrip()
+
 EVALUATOR_SYSTEM = f"""Eres un curador de noticias de IA para TODO el equipo de WIN Internet.
 
 Audiencia:
@@ -107,9 +127,9 @@ Te paso una lista de noticias ya evaluadas y filtradas (las mas relevantes). Gen
   "Que es un token?", "Que es un agente de IA?") y explicalo en MAXIMO 3 frases cortas y
   SUPER simples, con un ejemplo cotidiano si ayuda. NO repitas ni reformules ninguno de
   los conceptos ya usados que se listan abajo (si los hay): elige uno distinto.
-- `chiste`: un chiste corto y ligero sobre IA o tecnologia, amable y para todo publico
-  (sin lisuras, sin temas sensibles), para cerrar el correo con una sonrisa. NO repitas
-  ni parafrasees ninguno de los chistes ya usados que se listan abajo (si los hay).
+- `chiste`: un chiste que de risa de verdad, siguiendo estas reglas:
+{JOKE_CRAFT}
+  NO repitas ni parafrasees ninguno de los chistes ya usados que se listan abajo (si los hay).
 
 Responde SIEMPRE en espanol.
 """
@@ -158,12 +178,11 @@ CONCEPT_FREE_INSTRUCTION = (
 )
 
 # Prompt dedicado para (re)generar SOLO el chiste, evitando repetir.
-JOKE_SYSTEM = f"""Eres el toque de humor del boletin semanal de IA de WIN Internet.
+JOKE_SYSTEM = f"""Eres el humorista del boletin semanal de IA de WIN Internet.
+Tu unico trabajo es hacer REIR (no inspirar, no motivar) a cualquier persona del equipo.
 
-{BRAND_VOICE}
+{JOKE_CRAFT}
 
-Crea UN chiste corto y original sobre IA o tecnologia, amable y para todo publico
-(que lo entienda cualquier persona del equipo), para cerrar el correo con una sonrisa. Nada de lisuras, politica, religion ni temas sensibles.
 NO repitas ni parafrasees ninguno de los chistes ya usados que se listan.
 Responde SIEMPRE en espanol.
 """
