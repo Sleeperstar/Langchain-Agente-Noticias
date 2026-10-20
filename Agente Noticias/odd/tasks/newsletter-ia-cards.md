@@ -78,5 +78,24 @@ what the new template requires.
 - Review 2 (`review-b0300017cb41c054`) → **approved**, acknowledged, authority burned. Boundary → `cfaae43`. Advisory follow-ups (non-blocking, fold into T7 hardening): graph.py:53-54 fan-out (checked: summarizer returns only `briefing`, no key collision), card_images node 52-69 (`fut.result()` unguarded), service.py:236-238 (replacement card generation inline in webapp request), persist_history.py:43-44, card_images.py:155-170 (suggestion).
 - Delivery: running count ~3000 lines (incl. uv.lock) > 400 → ask-on-risk: chain strategy must be asked before committing T5+T6.
 
+- T5+T6 commit `adcc03f` (30 tests pass). Review 3 granted, running.
+- Delivery decided (user delegated choice, wants it on GitHub; repo is PUBLIC): **stacked PRs to master**.
+  - PR #1 `feat/news-01-scheduler-sqlite` (28ed57e..a1835f3) → master. 630 authored lines, size:exception (code+tests).
+  - PR #2 `feat/news-02-card-images` (cfaae43) → PR1 branch. 909 lines, size:exception.
+  - PR #3 `feat/newsletter-ia-cards` (adcc03f + T7) → PR2 branch. Pending review 3.
+
+- Review 3 (`review-ecd8260fc5eefccd`) → approved, acknowledged, burned. Boundary → `adcc03f`. Advisory: outlook_sender.py:103-108 send errors crash the graph.
+- PRs opened: #1, #2, #3 (https://github.com/Sleeperstar/Langchain-Agente-Noticias/pull/1..3).
+- T7a (hardening of all advisories + logo crop) delegated to one writer.
+
+- T7a commit `ec980c7` (pushed to PR #3): 43 tests pass (parent re-run); header logo visually checked. RDD assess: medium, under_budget (331) → pending in slice.
+- T7b real dry run started (`run.py --dry-run --headless`).
+
+- T7b dry run #1: Tavily ok (29 unique), all 29 evaluator calls failed with OpenAI 429 `insufficient_quota` → 0 articles, empty "(sin noticias relevantes)" briefing, exit 0. **Bug found**: a scheduled run would email an empty newsletter to all staff.
+- Decision (user, 2026-10-20): route text LLM through OpenRouter as well; default `openai/gpt-5-mini` (OpenRouter: $0.25/M in, $2/M out, structured outputs supported).
+- [x] T7c LLM factory via OpenRouter + never-send-empty guard (exit 1). Route: delegated (6+ files). Commit `3f69fcb`, 54 tests pass.
+- Review 4 (`review-8a3460738fc70b3b`, T7a+T7c, 753 lines) → approved, acknowledged, burned. Boundary → `3f69fcb`. Advisories: legacy bare model id (fixed: `get_model()` prefixes `openai/` + test); webapp `send_now` (no change needed: already refuses empty draft and persists only after a non-raising send); brittle private-API test (suggestion, left).
+- T7b dry run #2 (OpenRouter): 29 evaluated → 5 selected, 5/5 AI cards, preview rendered; parent screenshot checked (`real_desktop.png`). exit 0. Note: 3/5 news had no company badge (government/industry news) — expected.
+
 ## Next step
-Ask user chain strategy → commit T5+T6 → T7 (real dry run + Outlook check).
+Ask user before a real test send to jquispeh@win.pe only (outward-facing); then Outlook desktop + phone check.

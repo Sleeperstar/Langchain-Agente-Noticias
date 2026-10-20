@@ -170,7 +170,9 @@ def get_recipients() -> list[str]:
 
 
 def get_model() -> str:
-    return os.getenv("NEWS_MODEL", DEFAULT_MODEL)
+    """OpenRouter model id. Legacy bare OpenAI ids (e.g. `gpt-5-mini`) get the `openai/` prefix."""
+    model = os.getenv("NEWS_MODEL", "").strip() or DEFAULT_MODEL
+    return model if "/" in model else f"openai/{model}"
 
 
 def get_db_path() -> Path:

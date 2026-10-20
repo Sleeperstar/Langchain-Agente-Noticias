@@ -56,6 +56,13 @@ def test_get_chat_model_respects_news_model_override(monkeypatch):
     assert llm.get_chat_model().model_name == "openai/gpt-5"
 
 
+def test_get_chat_model_prefixes_legacy_bare_openai_id(monkeypatch):
+    # Old .env files still carry NEWS_MODEL=gpt-5-mini from the direct-OpenAI era.
+    monkeypatch.setenv("OPENROUTER_API_KEY", FAKE_KEY)
+    monkeypatch.setenv("NEWS_MODEL", "gpt-5-mini")
+    assert llm.get_chat_model().model_name == "openai/gpt-5-mini"
+
+
 def test_get_chat_model_missing_key_fails_fast(monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     with pytest.raises(llm.MissingOpenRouterKeyError, match="OPENROUTER_API_KEY"):
