@@ -1,8 +1,8 @@
 """Configuracion centralizada: contexto, queries Tavily y parametros.
 
-Este agente arma un briefing SEMANAL de noticias de IA generales y digeribles
-para los directivos de Win Internet (nivel inicial/intermedio), con el look and
-feel de la marca. No esta enfocado en telecomunicaciones.
+Este agente arma un boletin SEMANAL de noticias de IA generales y digeribles
+para todo el equipo de WIN Internet (no tecnico), con el look and feel de la
+marca. No esta enfocado en telecomunicaciones.
 """
 from __future__ import annotations
 
@@ -58,12 +58,13 @@ def load_environment() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# Contexto de audiencia: directivos de Win con nivel inicial/intermedio en IA.
+# Audience: every WIN employee (all areas), mostly non-technical.
 AUDIENCE_CONTEXT = """
-La audiencia son directivos y gerentes de Win Internet (una empresa peruana de
-internet por fibra optica). NO son expertos en IA: tienen un nivel inicial o
-intermedio. Quieren mantenerse al dia con las novedades mas importantes del mundo
-de la inteligencia artificial de forma DIGERIBLE y entretenida, no tecnica.
+La audiencia es TODO el equipo de WIN Internet (una empresa peruana de internet por
+fibra optica): personas de todas las areas (ventas, atencion al cliente, operaciones,
+tecnologia, administracion). La mayoria NO es experta en IA. Quieren enterarse en
+pocos minutos, desde el celular, de lo mas importante del mundo de la inteligencia
+artificial, de forma CORTA, clara y entretenida, sin sentirse abrumadas.
 
 Les interesa sobre todo:
 - Nuevos modelos y lanzamientos de las grandes (OpenAI, Google, Anthropic, Meta, etc.).
@@ -71,7 +72,7 @@ Les interesa sobre todo:
 - Herramientas y productos de IA que cualquiera puede usar o que marcan tendencia.
 - Hitos o noticias de la industria que dan tema de conversacion.
 
-Evita la jerga innecesaria. Si usas un termino tecnico, explicalo en simple.
+Evita la jerga. Si usas un termino tecnico, explicalo en simple.
 """.strip()
 
 # Categorias generales (deben coincidir con schemas.CategoriaIA).

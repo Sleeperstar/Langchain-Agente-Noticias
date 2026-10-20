@@ -13,8 +13,8 @@ los directivos de Win Internet. En cada corrida:
    categoria, la resume y la explica "en simple". Usa salida estructurada (Pydantic).
 4. **ranker**: ve todas las candidatas juntas, colapsa duplicados del mismo evento y
    asigna scores diferenciados (solo lo mas grande de la semana llega a 10). Elige el top 5.
-5. **summarizer**: arma headline + TL;DR (lectura de 30 segundos) + **concepto del dia**
-   + **chiste** de cierre, con el tono de marca Win.
+5. **summarizer**: arma el titular + **concepto del dia** + **chiste** de cierre, con el
+   tono de marca Win (para todo el equipo, sin jerga).
 6. **email_writer**: renderiza el correo HTML con el look and feel de Win y guarda
    `output/preview.html`.
 7. **outlook_sender**: envia el correo via **Outlook Desktop** (`pywin32`/COM) a los
@@ -172,8 +172,10 @@ Cada corrida se agrupa en el proyecto **`agente-noticias-win`** con tags, metada
 
 - **`pywintypes.com_error: No se ha llamado a CoInitialize`**: ya resuelto; el sender
   llama a `CoInitialize()` por hilo. Asegura que Outlook este abierto.
-- **El logo no se ve en el correo**: confirma que `assets/win_logo.png` existe; en el
-  preview del navegador se usa data URI y en el correo `cid:winlogo`.
+- **El logo o las tarjetas no se ven en el correo**: confirma que `assets/win_logo.png` y
+  los PNG de `data/images/` existen; en el preview del navegador se usan data URIs y en el
+  correo `cid:winlogo` / `cid:card1..N` (adjuntos inline). Para revisar el diseno sin
+  llamar APIs: `uv run python scripts/render_sample.py` -> `output/sample_preview.html`.
 - **No filtra repetidos**: busca `[db] WARNING` en la consola y revisa que
   `NEWS_DB_PATH` (o `data/`) sea escribible.
 - **Trace no aparece en LangSmith**: confirma `LANGSMITH_TRACING=true`.

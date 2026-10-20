@@ -183,8 +183,9 @@ def _evaluated(**article_extra) -> EvaluatedArticle:
             reasoning="r",
             relevance_score=8,
             category="IA agentica",
+            label_es="Agentes",
+            title_es="OpenAI lanza un agente",
             summary_es="Resumen.",
-            en_simple="Simple.",
             company="openai",
         ),
     )

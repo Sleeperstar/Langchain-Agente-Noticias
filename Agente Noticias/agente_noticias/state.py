@@ -27,6 +27,8 @@ class NewsState(TypedDict, total=False):
     # Email writer
     subject: str
     html_body: str
+    # (file path, Content-ID) of the images `html_body` references via cid:
+    inline_images: list[tuple[str, str]]
     preview_path: str
 
     # Sender

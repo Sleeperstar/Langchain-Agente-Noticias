@@ -1,4 +1,4 @@
-"""Summarizer node: produce headline + TL;DR + concepto del dia + chiste."""
+"""Summarizer node: produce headline + concepto del dia + chiste."""
 from __future__ import annotations
 
 from datetime import date
@@ -28,10 +28,9 @@ def _format_articles_block(selected) -> str:
     for i, item in enumerate(selected, start=1):
         a, e = item.article, item.evaluation
         lines.append(
-            f"{i}. [{e.relevance_score}/10] {a.title}\n"
+            f"{i}. [{e.relevance_score}/10] {e.title_es or a.title}\n"
             f"   Categoria: {e.category}\n"
             f"   Resumen: {e.summary_es}\n"
-            f"   En simple: {e.en_simple}\n"
             f"   Fuente: {a.source} | {a.url}\n"
         )
     return "\n".join(lines)
@@ -43,12 +42,7 @@ def summarizer_node(state: NewsState) -> dict:
     if not selected:
         return {
             "briefing": Briefing(
-                headline=f"Briefing IA Win - {date.today().isoformat()} (sin noticias relevantes)",
-                tldr=[
-                    "No se encontraron noticias con score de relevancia suficiente.",
-                    "Considera ampliar las queries o el rango temporal en config.py.",
-                    "El agente igual queda trazado en LangSmith para revision.",
-                ],
+                headline=f"Noticias IA WIN - {date.today().isoformat()} (sin noticias relevantes)",
                 concepto_titulo="",
                 concepto_explicacion="",
                 chiste="",
@@ -87,12 +81,11 @@ def summarizer_node(state: NewsState) -> dict:
             concepto_titulo = nuevo.concepto_titulo
             concepto_explicacion = nuevo.concepto_explicacion
 
-    # Aseguramos que el headline tenga la fecha y maximo 3 bullets.
+    # The headline doubles as the email subject: make sure it carries the date.
     today = date.today().isoformat()
     needs_date = today not in briefing.headline
     briefing = Briefing(
         headline=f"{briefing.headline} - {today}" if needs_date else briefing.headline,
-        tldr=briefing.tldr[:3] if len(briefing.tldr) > 3 else briefing.tldr,
         concepto_titulo=concepto_titulo,
         concepto_explicacion=concepto_explicacion,
         chiste=chiste,

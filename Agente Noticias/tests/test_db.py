@@ -158,3 +158,30 @@ def test_failure_degrades_and_warns(tmp_path, monkeypatch, capsys):
     assert db.fetch_recent_sent(6) == []
     assert _save([_article(1)]) == ""
     assert "[db] WARNING" in capsys.readouterr().err
+
+
+def test_non_numeric_relevance_score_is_coerced_not_raised(db_path):
+    articles = [
+        _article(1, relevance_score="alto"),
+        _article(2, relevance_score=None),
+        _article(3, relevance_score="7.6"),
+        _article(4, relevance_score=9),
+    ]
+
+    briefing_id = _save(articles)
+
+    assert briefing_id
+    with closing(sqlite3.connect(db_path)) as conn:
+        scores = [
+            row[0]
+            for row in conn.execute(
+                "SELECT relevance_score FROM sent_articles ORDER BY url"
+            ).fetchall()
+        ]
+    assert scores == [0, 0, 7, 9]
+
+
+def test_malformed_article_degrades_instead_of_raising(db_path, capsys):
+    assert _save([_article(1), "not-a-dict"]) == ""  # type: ignore[list-item]
+    assert "[db] WARNING" in capsys.readouterr().err
+    assert db.fetch_recent_sent(6) == []

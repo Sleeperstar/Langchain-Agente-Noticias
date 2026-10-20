@@ -72,5 +72,11 @@ what the new template requires.
 - T3+T4: `pytest -q tests` → 19 passed (parent re-run); `build_graph(send=False)` ok; 1 real OpenRouter call (`POST /api/v1/images`, `data[0].b64_json`, aspect 3:2) → on-style card with OpenAI badge, visually checked by parent. Graph: ranker → [summarizer ‖ card_images] → email_writer. 14 logos from Wikimedia Commons in `assets/logos/`.
   - Open: per-card cost unknown (NEWS_IMAGE_QUALITY=medium default); google/gemini and alibaba/qwen are separate keys.
 
+- T3+T4 commit `cfaae43`. RDD: medium, slice_budget_reached (1003) → user granted review → lineage `review-b0300017cb41c054` (untracked T5 files excluded), 1 lens reliability, running.
+- T5+T6 (uncommitted): writer reports 30 tests pass, graph ok, `scripts/render_sample.py` → `output/sample_preview.html`; parent visually checked desktop (640) + mobile (390) screenshots: cards, concept, joke, footer render; mobile stacks. R3-001 fixed (`_as_int`). Also fixed pre-existing KeyError in `service._refresh_briefing_text`.
+  - Open: `notebooks/agente_noticias.ipynb` still uses `briefing.tldr`; WIN logo PNG has large padding (looks small); Outlook desktop shows square corners on boxes (cards are baked).
+- Review 2 (`review-b0300017cb41c054`) → **approved**, acknowledged, authority burned. Boundary → `cfaae43`. Advisory follow-ups (non-blocking, fold into T7 hardening): graph.py:53-54 fan-out (checked: summarizer returns only `briefing`, no key collision), card_images node 52-69 (`fut.result()` unguarded), service.py:236-238 (replacement card generation inline in webapp request), persist_history.py:43-44, card_images.py:155-170 (suggestion).
+- Delivery: running count ~3000 lines (incl. uv.lock) > 400 → ask-on-risk: chain strategy must be asked before committing T5+T6.
+
 ## Next step
-T5+T6 (template redesign + tone) delegated to one writer.
+Ask user chain strategy → commit T5+T6 → T7 (real dry run + Outlook check).

@@ -20,17 +20,17 @@ from agente_noticias.concepts import (
     generate_concept,
     get_recent_concepts,
     normalize_concept,
+    recent_concepts_block,
 )
 from agente_noticias.config import (
     DEDUP_WEEKS,
     DEFAULT_PROJECT,
-    LOGO_PATH,
     MIN_RELEVANCE_SCORE,
     get_model,
     get_recipients,
 )
 from agente_noticias.db import fetch_recent_sent, save_briefing
-from agente_noticias.email_template import logo_data_uri, render_email
+from agente_noticias.email_template import inline_images, render_email
 from agente_noticias.jokes import (
     generate_unique_joke,
     get_recent_jokes,
@@ -86,8 +86,10 @@ def _serialize_article(item: EvaluatedArticle, index: int) -> dict:
         "published_date": a.published_date,
         "category": e.category,
         "relevance_score": e.relevance_score,
+        "title_es": e.title_es,
+        "label_es": e.label_es,
         "summary_es": e.summary_es,
-        "en_simple": e.en_simple,
+        "card_image": bool(item.card_image_path),
     }
 
 
@@ -99,7 +101,6 @@ def serialize_draft() -> dict:
         "ready": True,
         "run_id": _DRAFT.run_id,
         "headline": b.headline,
-        "tldr": b.tldr,
         "concepto_titulo": b.concepto_titulo,
         "concepto_explicacion": b.concepto_explicacion,
         "chiste": b.chiste,
@@ -166,12 +167,13 @@ def stream_generate() -> Iterator[dict]:
 # Refresco de los textos del briefing (sin tocar el chiste)
 # --------------------------------------------------------------------------- #
 def _refresh_briefing_text() -> None:
-    """Regenera headline/TLDR/concepto a partir del set actual, conservando el chiste."""
+    """Regenera headline/concepto a partir del set actual, conservando el chiste."""
     if _DRAFT is None or _DRAFT.briefing is None or not _DRAFT.selected:
         return
     llm = init_chat_model(get_model()).with_structured_output(BriefingText)
     user = SUMMARIZER_USER_TEMPLATE.format(
         articles_block=_format_articles_block(_DRAFT.selected),
+        recent_concepts_block=recent_concepts_block(get_recent_concepts()),
         recent_jokes_block="(no aplica)",
     )
     try:
@@ -189,7 +191,6 @@ def _refresh_briefing_text() -> None:
     headline = txt.headline if today in txt.headline else f"{txt.headline} - {today}"
     _DRAFT.briefing = Briefing(
         headline=headline,
-        tldr=txt.tldr[:3],
         concepto_titulo=txt.concepto_titulo,
         concepto_explicacion=txt.concepto_explicacion,
         chiste=_DRAFT.briefing.chiste,
@@ -366,7 +367,7 @@ def set_custom_concept(topic: str) -> dict:
 # Preview y envio
 # --------------------------------------------------------------------------- #
 def render_preview() -> str:
-    """HTML del correo para el iframe (logo embebido como data URI)."""
+    """HTML del correo para el iframe (imagenes embebidas como data URI)."""
     if _DRAFT is None or _DRAFT.briefing is None:
         return "<p style='font-family:sans-serif;padding:24px;'>Aun no hay borrador.</p>"
     return render_email(
@@ -375,7 +376,7 @@ def render_preview() -> str:
         model=get_model(),
         project=os.getenv("LANGSMITH_PROJECT", DEFAULT_PROJECT),
         run_id=_DRAFT.run_id,
-        logo_src=logo_data_uri(),
+        images="data",
     )
 
 
@@ -398,12 +399,14 @@ def send_now() -> dict:
         model=model,
         project=project,
         run_id=_DRAFT.run_id,
-        logo_src="cid:winlogo" if LOGO_PATH.exists() else "",
+        images="cid",
     )
 
     recipients = get_recipients()
     try:
-        result = _send_via_outlook("; ".join(recipients), subject, html)
+        result = _send_via_outlook(
+            "; ".join(recipients), subject, html, inline_images(_DRAFT.selected)
+        )
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "error": f"fallo el envio: {exc}"}
 

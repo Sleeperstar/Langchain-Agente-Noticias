@@ -69,9 +69,9 @@ def main() -> int:
         print(f"Archivo preview:  {result.get('preview_path')}")
         print(f"Articulos:        {len(result.get('selected_articles', []) or [])}")
         print(f"Descartadas hist: {result.get('dropped_by_history', 0)}")
-        print("TL;DR:")
-        for b in briefing.tldr:
-            print(f"  - {b}")
+        print("Noticias:")
+        for item in result.get("selected_articles", []) or []:
+            print(f"  - {item.evaluation.title_es or item.article.title}")
         if briefing.concepto_titulo:
             print(f"Concepto del dia: {briefing.concepto_titulo}")
 
