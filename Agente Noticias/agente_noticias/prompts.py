@@ -36,9 +36,14 @@ Debes:
 4. Escribir un `summary_es` de 2 a 3 frases en espanol neutro, sin marketing.
 5. Escribir `en_simple`: explica en lenguaje MUY sencillo (1-2 frases) que es y por
    que deberia importarle a alguien sin conocimientos tecnicos. Nada de jerga.
+6. Indicar `company`: la empresa principal de la que trata la noticia, usando SOLO una
+   de las claves permitidas (p. ej. "openai", "google", "anthropic"); null si la noticia
+   no es sobre una de ellas o trata de varias por igual.
+7. Escribir `visual_subject` EN INGLES (max 25 palabras): una metafora visual de la
+   noticia para una ilustracion abstracta, sin marcas, logos, texto ni personas reales.
 
 No inventes datos. Si la noticia no aporta valor, asigna score bajo y se honesto.
-Responde SIEMPRE en espanol.
+Responde SIEMPRE en espanol (salvo `visual_subject`, en ingles).
 """
 
 EVALUATOR_USER_TEMPLATE = """Noticia a evaluar:
@@ -171,3 +176,18 @@ MANUAL_TOPIC_NOTE = (
     "El usuario pidio expresamente cubrir este tema, asi que evalualo con el mismo "
     "rubric pero priorizando que sea claro y util para la audiencia."
 )
+
+# House style for the AI-generated card illustrations (OpenRouter image model).
+# The model must never draw text or logos: company logos are composited afterwards.
+CARD_IMAGE_PROMPT = """Editorial digital illustration for a technology newsletter card.
+
+Subject: {subject}
+
+Style: abstract, modern and clean editorial illustration with one clear focal element and
+subtle depth. Dark background (near-black #0F0908 blending into deep navy) with glowing
+WIN orange (#FF5A0A) and warm yellow (#FFC200) light accents, soft gradients, gentle glow.
+Landscape 3:2 composition; keep the bottom-left corner calm and uncluttered.
+
+Absolutely NO text, letters, words, numbers, captions, logos, brand marks, watermarks,
+user interfaces or recognizable real people.
+"""

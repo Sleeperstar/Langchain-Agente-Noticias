@@ -12,9 +12,20 @@ from agente_noticias.state import NewsState
 from agente_noticias.text_utils import is_near_duplicate, normalize_title
 
 
+def _first_image_url(item: dict) -> str | None:
+    """First usable image of a Tavily result (`images` may hold str or {url, description})."""
+    for img in item.get("images") or []:
+        url = img.get("url") if isinstance(img, dict) else img
+        if isinstance(url, str) and url.startswith(("http://", "https://")):
+            return url
+    return None
+
+
 def _run_single_query(spec: dict) -> list[Article]:
     """Ejecuta una sola query Tavily y normaliza resultados."""
     params = {k: v for k, v in spec.items() if k != "query"}
+    # Per-result images feed the newsletter card fallback (see card_images.py).
+    params.setdefault("include_images", True)
     tool = TavilySearch(**params)
     raw = tool.invoke({"query": spec["query"]})
 
@@ -29,6 +40,7 @@ def _run_single_query(spec: dict) -> list[Article]:
                 published_date=item.get("published_date", "") or "",
                 score=float(item.get("score") or 0.0),
                 query=spec["query"],
+                image_url=_first_image_url(item),
             )
         )
     return out

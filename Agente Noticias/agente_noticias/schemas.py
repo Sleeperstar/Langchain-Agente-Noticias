@@ -13,6 +13,24 @@ CategoriaIA = Literal[
     "Industria",
 ]
 
+# Canonical company keys for the card logo badge (must match logos.COMPANY_DISPLAY_NAMES).
+CompanyKey = Literal[
+    "openai",
+    "anthropic",
+    "google",
+    "gemini",
+    "meta",
+    "microsoft",
+    "nvidia",
+    "xai",
+    "mistral",
+    "deepseek",
+    "apple",
+    "amazon",
+    "alibaba",
+    "qwen",
+]
+
 
 class Article(BaseModel):
     """Articulo crudo devuelto por Tavily, normalizado."""
@@ -24,6 +42,8 @@ class Article(BaseModel):
     published_date: str = ""
     score: float = 0.0
     query: str = ""
+    # Source image of the article (Tavily per-result image), if any.
+    image_url: str | None = None
 
 
 class ArticleEvaluation(BaseModel):
@@ -49,6 +69,22 @@ class ArticleEvaluation(BaseModel):
         ...,
         description="Categoria principal de la noticia.",
     )
+    company: CompanyKey | None = Field(
+        default=None,
+        description=(
+            "Empresa principal de la que trata la noticia, como clave canonica. Usa "
+            "'gemini' si es sobre los modelos/app Gemini y 'google' para el resto de "
+            "Google/DeepMind; 'qwen' para modelos Qwen y 'alibaba' para el resto de "
+            "Alibaba. null si no es sobre una de estas empresas."
+        ),
+    )
+    visual_subject: str = Field(
+        default="",
+        description=(
+            "In ENGLISH, max 25 words: a visual metaphor that illustrates the news for an "
+            "abstract editorial illustration. No brand names, logos, text or real people."
+        ),
+    )
     summary_es: str = Field(
         ...,
         description="Resumen en espanol, 2-3 frases, claro y sin marketing.",
@@ -65,6 +101,8 @@ class ArticleEvaluation(BaseModel):
 class EvaluatedArticle(BaseModel):
     article: Article
     evaluation: ArticleEvaluation
+    # Absolute path of the generated card PNG (set by the card_images node).
+    card_image_path: str | None = None
 
 
 class RankedSelection(BaseModel):
