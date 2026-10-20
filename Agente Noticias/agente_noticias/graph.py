@@ -4,7 +4,7 @@ Flujo:
     START -> researcher -> history_filter -> evaluator -> ranker -> summarizer
           -> email_writer -> outlook_sender -> persist_history -> END
 
-- `history_filter` descarta noticias ya enviadas en semanas anteriores (Supabase).
+- `history_filter` descarta noticias ya enviadas en semanas anteriores (SQLite local).
 - Con `send=False` (--dry-run) el grafo termina en `email_writer`: solo genera el
   preview, sin enviar ni persistir el historial.
 """

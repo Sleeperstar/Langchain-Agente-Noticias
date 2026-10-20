@@ -12,7 +12,7 @@ class NewsState(TypedDict, total=False):
     # Researcher
     raw_articles: list[Article]
 
-    # History filter (anti-repeticion contra Supabase)
+    # History filter (anti-repeticion contra el historial SQLite)
     dropped_by_history: int
 
     # Evaluator

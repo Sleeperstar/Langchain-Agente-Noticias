@@ -47,8 +47,8 @@ what the new template requires.
 - RDD: on (global).
 
 ## Tasks
-- [ ] T1 Fix scheduler call (`run_scheduled.ps1` → valid `run.py` flags; log real exit code). Route: inline.
-- [ ] T2 SQLite history store replacing Supabase (`db.py`), same public interface; tests. Route: delegated (writer).
+- [x] T1 Fix scheduler call (`run_scheduled.ps1` → valid `run.py` flags; log real exit code). Route: inline (1 file, mechanical). Commit `28ed57e`. RDD assess: medium, under_budget.
+- [x] T2 SQLite history store replacing Supabase (`db.py`), same public interface; tests. Route: delegated (writer; 4+ files trigger).
 - [ ] T3 Article model: `image_url`, `company`; researcher collects images/og:image; evaluator extracts company. Route: delegated.
 - [ ] T4 Card image pipeline: OpenRouter illustration + Pillow logo badge + og:image fallback; logo library. Route: delegated. Needs: OPENROUTER_API_KEY, model verification.
 - [ ] T5 Template redesign: image-left cards, concept + joke kept, TL;DR removed, CID for all images, mobile + Outlook. Route: delegated.
@@ -61,7 +61,9 @@ what the new template requires.
 - Scheduled script runs without argument errors and logs the real exit status.
 
 ## Progress / Evidence
-- (none yet)
+- T1: `run.py --auto-approve` → `error: unrecognized arguments` exit=2 (bug confirmed); fixed script parse errors: 0.
+- T2: `pytest -q tests` → 7 passed; import smoke ok; no `supabase` references left. New DB starts empty (old history unrecoverable).
+- Image model verified on OpenRouter: `openai/gpt-image-2` available (2026-10-20); configurable via env.
 
 ## Next step
-T1.
+T3 (article image/company fields). Waiting on user: OPENROUTER_API_KEY in `.env`.
