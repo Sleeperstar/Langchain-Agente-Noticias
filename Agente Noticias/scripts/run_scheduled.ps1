@@ -1,5 +1,5 @@
 # Wrapper PowerShell para Windows Task Scheduler.
-# Ejecuta el agente en modo no interactivo (--auto-approve --headless).
+# Ejecuta el agente en modo no interactivo (--headless).
 # Loguea cada corrida en output/scheduled.log.
 
 $ErrorActionPreference = "Stop"
@@ -21,8 +21,15 @@ Add-Content -Path $LogPath -Value "[$Stamp] iniciando agente_noticias..."
 
 try {
     Set-Location $ProjectRoot
-    & $Python "scripts\run.py" --auto-approve --headless 2>&1 |
+    # Native stderr (warnings, progress) must not abort the run under "Stop".
+    $ErrorActionPreference = "Continue"
+    & $Python "scripts\run.py" --headless 2>&1 |
         Tee-Object -FilePath $LogPath -Append | Out-Null
+    $ExitCode = $LASTEXITCODE
+    $ErrorActionPreference = "Stop"
+    if ($ExitCode -ne 0) {
+        throw "run.py exited with code $ExitCode"
+    }
     Add-Content -Path $LogPath -Value "[$Stamp] OK"
 }
 catch {
