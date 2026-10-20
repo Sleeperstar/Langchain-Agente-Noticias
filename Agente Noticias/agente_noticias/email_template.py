@@ -205,7 +205,7 @@ TEMPLATE = """\
             <tr>
               <td style="padding:20px 20px 20px 20px;">
                 {{ label("Para cerrar con humor winner", yellow) }}
-                <p style="margin:0;font-family:{{ font }};font-size:16px;font-weight:400;line-height:1.5;color:{{ white }};">{{ briefing.chiste }}</p>
+                <p style="margin:0;font-family:{{ font }};font-size:16px;font-weight:400;line-height:1.5;color:{{ white }};">{{ briefing.chiste | nl2br }}</p>
               </td>
             </tr>
           </table>
@@ -235,7 +235,14 @@ TEMPLATE = """\
 </html>
 """
 
+def nl2br(text: str | None) -> Markup:
+    """Escape text and keep its line breaks (dialogue jokes are two lines)."""
+    lines = (text or "").strip().splitlines()
+    return Markup("<br>").join(Markup.escape(line.strip()) for line in lines)
+
+
 _ENV = Environment(autoescape=select_autoescape(default_for_string=True, default=True))
+_ENV.filters["nl2br"] = nl2br
 _TEMPLATE = _ENV.from_string(TEMPLATE)
 
 

@@ -204,3 +204,9 @@ def test_attach_inline_images_only_referenced_existing_files(tmp_path, logo, cap
     assert cids == ["winlogo", "card1", "card3"]
     assert all(a.props[PR_ATTACH_HIDDEN] is True for a in mail.Attachments.items)
     assert "card2" in capsys.readouterr().out
+
+
+def test_multiline_joke_keeps_line_breaks_and_escapes(tmp_path, logo):
+    briefing = BRIEFING.model_copy(update={"chiste": "-Pregunta <b>?\n-Remate final."})
+    html = render_email(briefing, _items(tmp_path), "gpt-x", "proj", "run-1", images="data", today=date(2026, 10, 20))
+    assert "-Pregunta &lt;b&gt;?<br>-Remate final." in html
