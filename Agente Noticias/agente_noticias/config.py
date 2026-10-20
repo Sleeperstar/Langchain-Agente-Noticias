@@ -148,7 +148,7 @@ MIN_RELEVANCE_SCORE = 5
 # Cuantos candidatos pasan al ranker comparativo.
 MAX_CANDIDATES = 12
 # Cuantas noticias finales entran al briefing.
-MAX_ARTICLES = 5
+MAX_ARTICLES = 3
 # Compatibilidad con codigo previo que usaba este nombre.
 MAX_ARTICLES_IN_EMAIL = MAX_ARTICLES
 # Below this many selected articles the newsletter is NOT sent (never email an empty one).

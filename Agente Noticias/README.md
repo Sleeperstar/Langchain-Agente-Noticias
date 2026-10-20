@@ -12,7 +12,7 @@ los directivos de Win Internet. En cada corrida:
 3. **evaluator**: el LLM puntua cada noticia (0-10) con un rubric estricto, le asigna
    categoria, la resume y la explica "en simple". Usa salida estructurada (Pydantic).
 4. **ranker**: ve todas las candidatas juntas, colapsa duplicados del mismo evento y
-   asigna scores diferenciados (solo lo mas grande de la semana llega a 10). Elige el top 5.
+   asigna scores diferenciados (solo lo mas grande de la semana llega a 10). Elige el top 3.
 5. **summarizer**: arma el titular + **concepto del dia** + **chiste** de cierre, con el
    tono de marca Win (para todo el equipo, sin jerga).
 6. **email_writer**: renderiza el correo HTML con el look and feel de Win y guarda
@@ -125,7 +125,7 @@ App local con el look & feel de Win para operar el agente sin tocar codigo:
 
 1. Boton "Enviar Correo Noticias IA Semanal" -> genera el borrador mostrando el
    flujo de los agentes EN VIVO (cada nodo se ilumina conforme corre).
-2. Revisa las 5 noticias (titulo, resumen, "en simple", categoria, relevancia),
+2. Revisa las 3 noticias (titulo, resumen, categoria),
    el concepto del dia y el chiste.
 3. Edita lo que no te guste:
    - "Regenerar con otra noticia": cambia esa noticia por el siguiente mejor
