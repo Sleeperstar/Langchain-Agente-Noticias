@@ -144,7 +144,7 @@ TEMPLATE = """\
             <tr>
               <td align="left" valign="middle" style="vertical-align:middle;">
                 {%- if logo_src %}
-                <img src="{{ logo_src }}" width="72" height="72" alt="WIN" style="display:block;width:72px;height:72px;border:0;">
+                <img src="{{ logo_src }}" width="110" height="57" alt="WIN" style="display:block;width:110px;height:57px;border:0;">
                 {%- else %}
                 <span style="font-family:{{ font }};font-size:40px;font-weight:700;color:{{ white }};">win</span>
                 {%- endif %}

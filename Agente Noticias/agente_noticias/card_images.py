@@ -61,6 +61,7 @@ HTTP_TIMEOUT = 15.0
 MAX_HTML_BYTES = 1_500_000
 MAX_IMAGE_BYTES = 12_000_000
 MIN_SOURCE_SIZE = (200, 120)
+MAX_SOURCE_PIXELS = 40_000_000  # reject decompression bombs before decoding
 BROWSER_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -95,9 +96,11 @@ def _warn(message: str) -> None:
 def _open_image(data: bytes) -> Image.Image:
     """Decodes image bytes, rejecting tiny images (icons, tracking pixels)."""
     img = Image.open(io.BytesIO(data))
-    img.load()
     if img.width < MIN_SOURCE_SIZE[0] or img.height < MIN_SOURCE_SIZE[1]:
         raise ValueError(f"image too small ({img.width}x{img.height})")
+    if img.width * img.height > MAX_SOURCE_PIXELS:
+        raise ValueError(f"image too large ({img.width}x{img.height})")
+    img.load()
     return img
 
 
@@ -165,7 +168,18 @@ def generate_illustration(
             continue
         if resp.status_code >= 400:
             raise ImageGenerationError(f"HTTP {resp.status_code}: {_error_message(resp)}")
-        return decode_image_response(resp.json())
+        try:
+            payload_json = resp.json()
+        except ValueError as exc:
+            raise ImageGenerationError(f"non-JSON response: {resp.text[:200]!r}") from exc
+        if not isinstance(payload_json, dict):
+            raise ImageGenerationError(f"unexpected response: {str(payload_json)[:300]}")
+        try:
+            return decode_image_response(payload_json)
+        except ImageGenerationError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - bad base64 / undecodable image
+            raise ImageGenerationError(f"undecodable image: {type(exc).__name__}: {exc}") from exc
     assert last_error is not None
     raise last_error
 
@@ -177,6 +191,9 @@ def _http_get(url: str, max_bytes: int, *, truncate: bool) -> bytes:
     with httpx.Client(follow_redirects=True, timeout=HTTP_TIMEOUT, headers=BROWSER_HEADERS) as client:
         with client.stream("GET", url) as resp:
             resp.raise_for_status()
+            declared = resp.headers.get("Content-Length", "")
+            if not truncate and declared.isdigit() and int(declared) > max_bytes:
+                raise ValueError(f"response larger than {max_bytes} bytes")
             buf = bytearray()
             for chunk in resp.iter_bytes():
                 buf.extend(chunk)

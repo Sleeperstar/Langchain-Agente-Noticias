@@ -1,6 +1,7 @@
 """Outlook sender node: usa pywin32 contra la sesion activa de Outlook Desktop."""
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Iterable
 
@@ -99,11 +100,16 @@ def outlook_sender_node(state: NewsState) -> dict:
     subject = state.get("subject") or "Noticias IA - WIN Internet"
     html_body = state.get("html_body") or ""
 
-    result = _send_via_outlook(
-        to=to,
-        subject=subject,
-        html_body=html_body,
-        inline_images=state.get("inline_images"),
-    )
+    try:
+        result = _send_via_outlook(
+            to=to,
+            subject=subject,
+            html_body=html_body,
+            inline_images=state.get("inline_images"),
+        )
+    except Exception as exc:  # noqa: BLE001 - Outlook closed, COM error, etc.
+        error = f"ERROR: no se pudo enviar el correo via Outlook: {exc}"
+        print(f"[outlook_sender] {error}", file=sys.stderr)
+        return {"send_result": error, "send_ok": False}
     print(f"[outlook_sender] {result}")
-    return {"send_result": result}
+    return {"send_result": result, "send_ok": True}

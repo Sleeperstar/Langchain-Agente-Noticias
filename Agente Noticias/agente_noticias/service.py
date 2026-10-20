@@ -197,6 +197,17 @@ def _refresh_briefing_text() -> None:
     )
 
 
+def _with_card(item: EvaluatedArticle) -> EvaluatedArticle:
+    """`item` with its card image; never raises (the article stays, without a card)."""
+    if item.card_image_path:
+        return item
+    try:
+        return attach_card_image(item)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[service] WARNING: no card for {item.article.url}: {exc}")
+        return item
+
+
 def _current_norm_titles(exclude_index: int | None = None) -> list[str]:
     titles = []
     for i, it in enumerate(_DRAFT.selected):  # type: ignore[union-attr]
@@ -231,12 +242,12 @@ def regenerate_article_auto(index: int) -> dict:
     if replacement is None:
         return {"ok": False, "error": "no quedan candidatos alternativos; usa busqueda por tema"}
 
+    # Card first, so the draft is only mutated once the replacement is ready.
+    new_item = _with_card(replacement)
     _DRAFT.pool.remove(replacement)
     # La noticia saliente vuelve al pool por si se quiere recuperar luego.
     _DRAFT.pool.append(_DRAFT.selected[index])
-    _DRAFT.selected[index] = (
-        replacement if replacement.card_image_path else attach_card_image(replacement)
-    )
+    _DRAFT.selected[index] = new_item
 
     _refresh_briefing_text()
     return {"ok": True, "draft": serialize_draft()}
@@ -292,8 +303,9 @@ def replace_article_by_topic(index: int, topic: str) -> dict:
     if evaluated is None:
         return {"ok": False, "error": "no se pudo evaluar la noticia encontrada"}
 
+    new_item = _with_card(evaluated)
     _DRAFT.pool.append(_DRAFT.selected[index])
-    _DRAFT.selected[index] = attach_card_image(evaluated)
+    _DRAFT.selected[index] = new_item
 
     _refresh_briefing_text()
     return {"ok": True, "draft": serialize_draft()}
@@ -410,36 +422,35 @@ def send_now() -> dict:
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "error": f"fallo el envio: {exc}"}
 
-    briefing_id = ""
-    if "enviado" in result.lower():
-        articles = []
-        for it in _DRAFT.selected:
-            a, e = it.article, it.evaluation
-            articles.append(
-                {
-                    "url": a.url,
-                    "normalized_title": normalize_title(a.title),
-                    "title": a.title,
-                    "source": a.source,
-                    "category": e.category,
-                    "relevance_score": e.relevance_score,
-                    "published_date": a.published_date,
-                    "company": e.company,
-                    "image_path": project_relative(it.card_image_path),
-                }
-            )
-        briefing_id = save_briefing(
-            subject=subject,
-            recipients=", ".join(recipients),
-            run_id=_DRAFT.run_id,
-            langsmith_project=project,
-            articles=articles,
-            joke=briefing.chiste,
-            joke_normalized=normalize_joke(briefing.chiste),
-            concepto_titulo=briefing.concepto_titulo,
-            concepto_explicacion=briefing.concepto_explicacion,
-            concepto_normalized=normalize_concept(briefing.concepto_titulo),
+    # `_send_via_outlook` raises on failure, so reaching here means it was sent.
+    articles = []
+    for it in _DRAFT.selected:
+        a, e = it.article, it.evaluation
+        articles.append(
+            {
+                "url": a.url,
+                "normalized_title": normalize_title(a.title),
+                "title": a.title,
+                "source": a.source,
+                "category": e.category,
+                "relevance_score": e.relevance_score,
+                "published_date": a.published_date,
+                "company": e.company,
+                "image_path": project_relative(it.card_image_path),
+            }
         )
+    briefing_id = save_briefing(
+        subject=subject,
+        recipients=", ".join(recipients),
+        run_id=_DRAFT.run_id,
+        langsmith_project=project,
+        articles=articles,
+        joke=briefing.chiste,
+        joke_normalized=normalize_joke(briefing.chiste),
+        concepto_titulo=briefing.concepto_titulo,
+        concepto_explicacion=briefing.concepto_explicacion,
+        concepto_normalized=normalize_concept(briefing.concepto_titulo),
+    )
 
     return {
         "ok": True,

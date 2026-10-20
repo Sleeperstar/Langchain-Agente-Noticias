@@ -33,6 +33,8 @@ class NewsState(TypedDict, total=False):
 
     # Sender
     send_result: str
+    # True only when Outlook accepted the message; persist_history relies on it.
+    send_ok: bool
     run_id: str
 
     # Persist history

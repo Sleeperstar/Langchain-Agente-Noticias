@@ -85,6 +85,9 @@ def main() -> int:
         print(f"[run] briefing_id:      {result.get('briefing_id', '(no guardado)')}")
 
     print(f"[run] run_id: {result.get('run_id')}")
+    if not args.dry_run and not result.get("send_ok"):
+        print("[run] ERROR: el correo NO se envio (ver [outlook_sender]).", file=sys.stderr)
+        return 1
     return 0
 
 

@@ -21,6 +21,7 @@ from agente_noticias.card_images import (
 from agente_noticias.config import COMPANY_LOGOS_DIR
 from agente_noticias.logos import COMPANY_DISPLAY_NAMES
 from agente_noticias.nodes import persist_history
+from agente_noticias.nodes import card_images as card_images_node_mod
 from agente_noticias.nodes.card_images import attach_card_image, project_relative
 from agente_noticias.schemas import (
     Article,
@@ -202,7 +203,7 @@ def test_attach_card_image_sets_path_and_persist_passes_relative_path(tmp_path, 
     monkeypatch.setattr(persist_history, "save_briefing", lambda **kw: captured.update(kw) or "id-1")
     monkeypatch.setattr(persist_history, "project_relative", lambda p: f"rel:{p}")
     persist_history.persist_history_node(
-        {"send_result": "Enviado OK", "selected_articles": [item], "subject": "s"}
+        {"send_ok": True, "send_result": "ok", "selected_articles": [item], "subject": "s"}
     )
 
     saved = captured["articles"][0]
@@ -218,3 +219,74 @@ def test_project_relative_and_card_filename():
     name = card_filename("¡OpenAI lanza un agente que trabaja mientras duermes!", "https://x.com/a")
     assert name.startswith("openai-lanza-un-agente-que-trabaja-mientras-duermes-")
     assert name.endswith(".png")
+
+
+def test_persist_history_skips_when_send_not_ok(monkeypatch):
+    monkeypatch.setattr(persist_history, "save_briefing", lambda **kw: pytest.fail("saved"))
+    item = _evaluated()
+    # The old heuristic matched "enviado" in the text; only the explicit flag counts now.
+    for state in (
+        {"send_ok": False, "send_result": "Correo enviado? no", "selected_articles": [item]},
+        {"send_result": "Correo enviado a x", "selected_articles": [item]},
+    ):
+        assert persist_history.persist_history_node(state) == {}
+
+
+def test_card_images_node_isolates_a_failing_card(tmp_path, monkeypatch, capsys):
+    good, bad = _evaluated(), _evaluated()
+    bad = bad.model_copy(update={"article": bad.article.model_copy(update={"url": "https://bad.example.com"})})
+
+    def fake_attach(item, out_dir=None):
+        if item.article.url == "https://bad.example.com":
+            raise RuntimeError("unexpected")
+        return item.model_copy(update={"card_image_path": str(tmp_path / "ok.png")})
+
+    monkeypatch.setattr(card_images_node_mod, "attach_card_image", fake_attach)
+    result = card_images_node_mod.card_images_node({"selected_articles": [good, bad]})
+
+    out = result["selected_articles"]
+    assert [it.article.url for it in out] == [good.article.url, "https://bad.example.com"]
+    assert out[0].card_image_path and out[1].card_image_path is None
+    assert "card task failed for https://bad.example.com" in capsys.readouterr().err
+
+
+def test_attach_card_image_never_raises(monkeypatch):
+    def boom(*a, **k):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(card_images_node_mod, "build_card_image", boom)
+    item = attach_card_image(_evaluated())
+    assert item.card_image_path is None
+
+
+class _FakeResp:
+    def __init__(self, status=200, json_data=None, text=""):
+        self.status_code, self._json, self.text = status, json_data, text
+
+    def json(self):
+        if self._json is None:
+            raise ValueError("not json")
+        return self._json
+
+
+@pytest.mark.parametrize(
+    "resp",
+    [
+        _FakeResp(text="<html>gateway</html>"),
+        _FakeResp(json_data=["not", "a", "dict"]),
+        _FakeResp(json_data={"data": [{"b64_json": "%%%not-base64%%%"}]}),
+        _FakeResp(json_data={"data": [{"b64_json": base64.b64encode(b"not an image").decode()}]}),
+    ],
+)
+def test_generate_illustration_bad_200_raises_generation_error(monkeypatch, resp):
+    monkeypatch.setattr(card_images.httpx, "post", lambda *a, **k: resp)
+    with pytest.raises(card_images.ImageGenerationError):
+        card_images.generate_illustration("robot", api_key="k", model="m", quality="low")
+
+
+def test_open_image_rejects_oversized_pixels(monkeypatch):
+    buf = io.BytesIO()
+    _solid((1, 2, 3), (400, 300)).save(buf, "PNG")
+    monkeypatch.setattr(card_images, "MAX_SOURCE_PIXELS", 100_000)
+    with pytest.raises(ValueError, match="too large"):
+        card_images._open_image(buf.getvalue())
