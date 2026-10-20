@@ -49,8 +49,8 @@ what the new template requires.
 ## Tasks
 - [x] T1 Fix scheduler call (`run_scheduled.ps1` → valid `run.py` flags; log real exit code). Route: inline (1 file, mechanical). Commit `28ed57e`. RDD assess: medium, under_budget.
 - [x] T2 SQLite history store replacing Supabase (`db.py`), same public interface; tests. Route: delegated (writer; 4+ files trigger).
-- [ ] T3 Article model: `image_url`, `company`; researcher collects images/og:image; evaluator extracts company. Route: delegated.
-- [ ] T4 Card image pipeline: OpenRouter illustration + Pillow logo badge + og:image fallback; logo library. Route: delegated. Needs: OPENROUTER_API_KEY, model verification.
+- [x] T3 Article model: `image_url`, `company`; researcher collects images/og:image; evaluator extracts company. Route: delegated (writer, combined with T4).
+- [x] T4 Card image pipeline: OpenRouter illustration + Pillow logo badge + og:image fallback; logo library. Route: delegated.
 - [ ] T5 Template redesign: image-left cards, concept + joke kept, TL;DR removed, CID for all images, mobile + Outlook. Route: delegated.
 - [ ] T6 Prompts/tone for all staff (short punchy titles, 2-sentence summaries ~20–30 words). Route: delegated with T5 or inline.
 - [ ] T7 End-to-end dry run → `output/preview.html`; manual check in Outlook desktop + mobile. Route: inline.
@@ -65,5 +65,12 @@ what the new template requires.
 - T2: `pytest -q tests` → 7 passed; import smoke ok; no `supabase` references left. New DB starts empty (old history unrecoverable).
 - Image model verified on OpenRouter: `openai/gpt-image-2` available (2026-10-20); configurable via env.
 
+- T2 commit `a1835f3`. RDD assess (base master, committed-only, untracked excluded): medium, `slice_budget_reached` (1087 lines, mostly uv.lock) → review due. Preflight STATUS asks for `intended_untracked_selection` (unrelated `Agente IA Personal/CLAUDE.md`); exact v1 JSON shape undocumented, 5 attempts refused → user chose to exclude it via `.git/info/exclude`. Review granted by user → lineage `review-1f2e491b339502b9`, 1 lens (reliability) → **approved**, acknowledged, authority burned. Reviewed boundary advances to `a1835f3`.
+  - Follow-up (advisory R3-001, WARNING): `db.py:180` `int(relevance_score)` runs outside the try, so a non-numeric score would raise out of `save_briefing` and break the graceful contract. Fold into next DB-touching task.
+- OPENROUTER_API_KEY set by user in `.env` (2026-10-20).
+
+- T3+T4: `pytest -q tests` → 19 passed (parent re-run); `build_graph(send=False)` ok; 1 real OpenRouter call (`POST /api/v1/images`, `data[0].b64_json`, aspect 3:2) → on-style card with OpenAI badge, visually checked by parent. Graph: ranker → [summarizer ‖ card_images] → email_writer. 14 logos from Wikimedia Commons in `assets/logos/`.
+  - Open: per-card cost unknown (NEWS_IMAGE_QUALITY=medium default); google/gemini and alibaba/qwen are separate keys.
+
 ## Next step
-T3 (article image/company fields). Waiting on user: OPENROUTER_API_KEY in `.env`.
+T5+T6 (template redesign + tone) delegated to one writer.

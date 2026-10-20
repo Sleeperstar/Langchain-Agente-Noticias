@@ -22,14 +22,21 @@ PREVIEW_PATH = OUTPUT_DIR / "preview.html"
 # Local SQLite history (anti-repetition). Card images live as files next to it.
 DATA_DIR = PROJECT_DIR / "data"
 DEFAULT_DB_PATH = DATA_DIR / "agente_noticias.db"
+# Generated newsletter card PNGs: <DATA_DIR>/images/<YYYY-MM-DD>/<slug>.png
+CARD_IMAGES_DIR = DATA_DIR / "images"
 
 # Logo de Win para el header del correo (blanco + claim, PNG transparente).
 ASSETS_DIR = PACKAGE_DIR / "assets"
 LOGO_PATH = ASSETS_DIR / "win_logo.png"
+# Company logos for the card badge: <key>.png (transparent, ~128 px tall).
+COMPANY_LOGOS_DIR = ASSETS_DIR / "logos"
 
 DEFAULT_RECIPIENT = "jquispeh@win.pe"
 DEFAULT_MODEL = "gpt-5-mini"
 DEFAULT_PROJECT = "agente-noticias-win"
+# Card illustrations via OpenRouter's image API (verified available 2026-10-20).
+DEFAULT_IMAGE_MODEL = "openai/gpt-image-2"
+DEFAULT_IMAGE_QUALITY = "medium"
 
 
 def load_environment() -> None:
@@ -169,3 +176,19 @@ def get_db_path() -> Path:
         return DEFAULT_DB_PATH
     path = Path(raw).expanduser()
     return path if path.is_absolute() else PROJECT_DIR / path
+
+
+def get_image_model() -> str:
+    """OpenRouter model used for the card illustrations (NEWS_IMAGE_MODEL)."""
+    return os.getenv("NEWS_IMAGE_MODEL", "").strip() or DEFAULT_IMAGE_MODEL
+
+
+def get_image_quality() -> str:
+    """Image quality tier sent to OpenRouter (NEWS_IMAGE_QUALITY: low|medium|high|auto)."""
+    return os.getenv("NEWS_IMAGE_QUALITY", "").strip() or DEFAULT_IMAGE_QUALITY
+
+
+def images_enabled() -> bool:
+    """NEWS_IMAGES_ENABLED (default true). False skips AI generation (og:image/placeholder only)."""
+    raw = os.getenv("NEWS_IMAGES_ENABLED", "true").strip().lower()
+    return raw not in {"0", "false", "no", "off"}
