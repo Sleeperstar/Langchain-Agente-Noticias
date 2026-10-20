@@ -105,8 +105,32 @@ def test_run_exit_code_reflects_send_result(monkeypatch, send_ok, expected):
 
     class FakeGraph:
         def invoke(self, state, config):
-            return {"send_ok": send_ok, "send_result": "x", "run_id": "r"}
+            return {
+                "send_ok": send_ok,
+                "send_result": "x",
+                "run_id": "r",
+                "selected_articles": [_item(1)],
+            }
 
     monkeypatch.setattr(graph, "build_graph", lambda send=True: FakeGraph())
     monkeypatch.setattr(sys, "argv", ["run.py", "--headless"])
     assert _load_run_script().main() == expected
+
+
+@pytest.mark.parametrize("argv", [["run.py", "--headless"], ["run.py", "--headless", "--dry-run"]])
+def test_run_exit_code_1_when_no_articles(monkeypatch, capsys, argv):
+    from agente_noticias import graph
+
+    class FakeGraph:
+        def invoke(self, state, config):
+            return {
+                "send_ok": False,
+                "send_result": "no se envio: 0 noticias seleccionadas (minimo 1)",
+                "run_id": "r",
+                "selected_articles": [],
+            }
+
+    monkeypatch.setattr(graph, "build_graph", lambda send=True: FakeGraph())
+    monkeypatch.setattr(sys, "argv", argv)
+    assert _load_run_script().main() == 1
+    assert "boletin vacio" in capsys.readouterr().err

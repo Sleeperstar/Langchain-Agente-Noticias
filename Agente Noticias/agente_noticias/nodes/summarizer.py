@@ -3,21 +3,19 @@ from __future__ import annotations
 
 from datetime import date
 
-from langchain.chat_models import init_chat_model
-
 from agente_noticias.concepts import (
     generate_concept,
     get_recent_concepts,
     is_concept_repeated,
     recent_concepts_block,
 )
-from agente_noticias.config import get_model
 from agente_noticias.jokes import (
     generate_unique_joke,
     get_recent_jokes,
     is_joke_repeated,
     recent_jokes_block,
 )
+from agente_noticias.llm import get_chat_model
 from agente_noticias.prompts import SUMMARIZER_SYSTEM, SUMMARIZER_USER_TEMPLATE
 from agente_noticias.schemas import Briefing
 from agente_noticias.state import NewsState
@@ -52,7 +50,7 @@ def summarizer_node(state: NewsState) -> dict:
     recent_jokes = get_recent_jokes()
     recent_concepts = get_recent_concepts()
 
-    llm = init_chat_model(get_model()).with_structured_output(Briefing)
+    llm = get_chat_model().with_structured_output(Briefing)
     user = SUMMARIZER_USER_TEMPLATE.format(
         articles_block=_format_articles_block(selected),
         recent_concepts_block=recent_concepts_block(recent_concepts),

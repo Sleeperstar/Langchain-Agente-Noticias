@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Callable, Iterator
 
-from langchain.chat_models import init_chat_model
 from langsmith import traceable
 
 from agente_noticias.concepts import (
@@ -36,6 +35,7 @@ from agente_noticias.jokes import (
     get_recent_jokes,
     normalize_joke,
 )
+from agente_noticias.llm import get_chat_model
 from agente_noticias.nodes.card_images import attach_card_image, project_relative
 from agente_noticias.nodes.evaluator import _evaluate_one
 from agente_noticias.nodes.researcher import _run_single_query
@@ -170,7 +170,7 @@ def _refresh_briefing_text() -> None:
     """Regenera headline/concepto a partir del set actual, conservando el chiste."""
     if _DRAFT is None or _DRAFT.briefing is None or not _DRAFT.selected:
         return
-    llm = init_chat_model(get_model()).with_structured_output(BriefingText)
+    llm = get_chat_model().with_structured_output(BriefingText)
     user = SUMMARIZER_USER_TEMPLATE.format(
         articles_block=_format_articles_block(_DRAFT.selected),
         recent_concepts_block=recent_concepts_block(get_recent_concepts()),

@@ -32,7 +32,8 @@ LOGO_PATH = ASSETS_DIR / "win_logo.png"
 COMPANY_LOGOS_DIR = ASSETS_DIR / "logos"
 
 DEFAULT_RECIPIENT = "jquispeh@win.pe"
-DEFAULT_MODEL = "gpt-5-mini"
+# Text LLM (OpenRouter model id; every chat call goes through OpenRouter, see llm.py).
+DEFAULT_MODEL = "openai/gpt-5-mini"
 DEFAULT_PROJECT = "agente-noticias-win"
 # Card illustrations via OpenRouter's image API (verified available 2026-10-20).
 DEFAULT_IMAGE_MODEL = "openai/gpt-image-2"
@@ -150,6 +151,8 @@ MAX_CANDIDATES = 12
 MAX_ARTICLES = 5
 # Compatibilidad con codigo previo que usaba este nombre.
 MAX_ARTICLES_IN_EMAIL = MAX_ARTICLES
+# Below this many selected articles the newsletter is NOT sent (never email an empty one).
+MIN_ARTICLES_TO_SEND = 1
 # Umbral de similitud de titulo (0-1) para considerar dos noticias duplicadas.
 TITLE_SIMILARITY_THRESHOLD = 0.8
 # Semanas hacia atras a revisar en el historial para no repetir noticias.

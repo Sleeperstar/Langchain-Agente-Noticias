@@ -5,7 +5,7 @@ Uso basico:
     uv run python scripts/run.py                  # busca, arma briefing y envia por Outlook
     uv run python scripts/run.py --dry-run        # solo genera el preview, NO envia ni guarda
     uv run python scripts/run.py --headless       # no abre el navegador con el preview
-    uv run python scripts/run.py --model gpt-5-mini   # override del modelo
+    uv run python scripts/run.py --model openai/gpt-5-mini   # override (id de OpenRouter)
     uv run python scripts/run.py --thread mi-id   # custom thread_id (LangGraph)
 """
 from __future__ import annotations
@@ -30,7 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--headless", action="store_true",
                         help="No abre el preview en el navegador.")
     parser.add_argument("--model", type=str, default=None,
-                        help="Override del modelo LLM (setea NEWS_MODEL).")
+                        help="Override del modelo LLM, id de OpenRouter (setea NEWS_MODEL).")
     parser.add_argument("--thread", type=str, default=None,
                         help="thread_id de LangGraph (por defecto se genera con uuid).")
     return parser.parse_args()
@@ -51,7 +51,7 @@ def main() -> int:
         os.environ["NEWS_MODEL"] = args.model
 
     import agente_noticias  # noqa: F401  (dispara load_environment)
-    from agente_noticias.config import get_model, get_recipients
+    from agente_noticias.config import MIN_ARTICLES_TO_SEND, get_model, get_recipients
     from agente_noticias.graph import build_graph, default_config
 
     thread_id = args.thread or f"agente-noticias-{date.today().isoformat()}-{uuid.uuid4().hex[:6]}"
@@ -85,6 +85,12 @@ def main() -> int:
         print(f"[run] briefing_id:      {result.get('briefing_id', '(no guardado)')}")
 
     print(f"[run] run_id: {result.get('run_id')}")
+    n_articles = len(result.get("selected_articles", []) or [])
+    if n_articles < MIN_ARTICLES_TO_SEND:
+        # Both modes exit 1 so schedulers/operators notice an empty run.
+        reason = result.get("send_result") or f"no se envio: {n_articles} noticias seleccionadas"
+        print(f"[run] ERROR: boletin vacio, NO se envia ({reason}).", file=sys.stderr)
+        return 1
     if not args.dry_run and not result.get("send_ok"):
         print("[run] ERROR: el correo NO se envio (ver [outlook_sender]).", file=sys.stderr)
         return 1

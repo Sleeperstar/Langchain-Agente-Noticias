@@ -4,10 +4,9 @@ from __future__ import annotations
 import re
 from difflib import SequenceMatcher
 
-from langchain.chat_models import init_chat_model
-
-from agente_noticias.config import DEDUP_WEEKS, get_model
+from agente_noticias.config import DEDUP_WEEKS
 from agente_noticias.db import fetch_recent_concepts
+from agente_noticias.llm import get_chat_model
 from agente_noticias.prompts import (
     CONCEPT_FREE_INSTRUCTION,
     CONCEPT_SYSTEM,
@@ -74,7 +73,7 @@ def generate_concept(
         CONCEPT_TOPIC_INSTRUCTION.format(topic=topic) if topic else CONCEPT_FREE_INSTRUCTION
     )
 
-    llm = init_chat_model(get_model()).with_structured_output(ConceptOut)
+    llm = get_chat_model().with_structured_output(ConceptOut)
     last: ConceptOut | None = None
     for _ in range(max_attempts):
         try:
