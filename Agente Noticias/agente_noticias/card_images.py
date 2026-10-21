@@ -44,6 +44,10 @@ BADGE_RADIUS = 20
 BADGE_PAD_LEFT = 18
 BADGE_PAD_RIGHT = 22
 BADGE_GAP = 10
+# Outlook on the web silently drops large inline (CID) images: verified 2026-10-21 that
+# ~43 KB cards render while a 283 KB full-color PNG shows as a blank 1x1 placeholder.
+MAX_CARD_BYTES = 100_000
+CARD_PALETTE_STEPS = (192, 128, 64)
 LOGO_HEIGHT = 36
 BADGE_FONT_SIZE = 26
 SUPERSAMPLE = 4
@@ -377,6 +381,23 @@ def _illustration_subject(title: str, summary: str, visual_subject: str) -> str:
     return f"An abstract visual metaphor for this news: {title}. {summary}"[:500]
 
 
+def save_card_png(card: Image.Image, out_path: Path) -> int:
+    """Save the card as a palette PNG (keeps alpha corners) under MAX_CARD_BYTES.
+
+    Tries fewer colors until the file fits; returns the final size in bytes.
+    """
+    data = b""
+    for colors in CARD_PALETTE_STEPS:
+        quantized = card.convert("RGBA").quantize(colors=colors, method=Image.Quantize.FASTOCTREE)
+        buf = io.BytesIO()
+        quantized.save(buf, "PNG", optimize=True)
+        data = buf.getvalue()
+        if len(data) <= MAX_CARD_BYTES:
+            break
+    out_path.write_bytes(data)
+    return len(data)
+
+
 def build_card_image(
     *,
     out_path: Path,
@@ -420,6 +441,6 @@ def build_card_image(
 
     card = compose_card(base, company)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    card.save(out_path, "PNG", optimize=True)
+    save_card_png(card, out_path)
     print(f"[card_images] {out_path.name} ({source}, company={company or '-'})")
     return out_path

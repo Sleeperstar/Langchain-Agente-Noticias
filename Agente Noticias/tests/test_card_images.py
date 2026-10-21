@@ -141,8 +141,8 @@ def test_fallback_uses_placeholder_when_everything_fails(tmp_path, monkeypatch):
     )
 
     assert out.is_file()
-    img = Image.open(out)
-    assert img.size == (528, 370) and img.mode == "RGBA"
+    img = Image.open(out)  # palette PNG (see save_card_png)
+    assert img.size == (528, 370) and img.convert("RGBA").getpixel((0, 0))[3] == 0
 
 
 def test_fallback_uses_og_image_when_ai_fails(tmp_path, monkeypatch):
@@ -164,8 +164,8 @@ def test_fallback_uses_og_image_when_ai_fails(tmp_path, monkeypatch):
     )
 
     assert calls == ["https://news.example.com/a"]
-    r, g, b, a = Image.open(out).getpixel((W // 2, H // 2))
-    assert (r, g, b, a) == (255, 0, 0, 255)
+    r, g, b, a = Image.open(out).convert("RGBA").getpixel((W // 2, H // 2))
+    assert (r, g, b) == (255, 0, 0) and a >= 250  # palette quantization may round alpha
 
 
 def test_images_disabled_skips_ai(tmp_path, monkeypatch):
@@ -290,3 +290,13 @@ def test_open_image_rejects_oversized_pixels(monkeypatch):
     monkeypatch.setattr(card_images, "MAX_SOURCE_PIXELS", 100_000)
     with pytest.raises(ValueError, match="too large"):
         card_images._open_image(buf.getvalue())
+
+
+def test_save_card_png_fits_outlook_web_budget_and_keeps_alpha(tmp_path):
+    card = card_images.compose_card(card_images.placeholder_image(seed="owa"), "openai")
+    out = tmp_path / "card.png"
+    size = card_images.save_card_png(card, out)
+    assert size == out.stat().st_size <= card_images.MAX_CARD_BYTES
+    saved = Image.open(out).convert("RGBA")
+    assert saved.size == card_images.CARD_SIZE
+    assert saved.getpixel((0, 0))[3] == 0  # rounded corner stays transparent
