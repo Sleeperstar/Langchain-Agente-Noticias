@@ -47,7 +47,7 @@ BADGE_GAP = 10
 # Outlook on the web silently drops large inline (CID) images: verified 2026-10-21 that
 # ~43 KB cards render while a 283 KB full-color PNG shows as a blank 1x1 placeholder.
 MAX_CARD_BYTES = 100_000
-CARD_PALETTE_STEPS = (192, 128, 64)
+CARD_PALETTE_STEPS = (192, 128, 64, 32)
 LOGO_HEIGHT = 36
 BADGE_FONT_SIZE = 26
 SUPERSAMPLE = 4
@@ -398,6 +398,11 @@ def save_card_png(card: Image.Image, out_path: Path) -> int:
         data = buf.getvalue()
         if len(data) <= MAX_CARD_BYTES:
             break
+    if len(data) > MAX_CARD_BYTES:
+        _warn(
+            f"{out_path.name} is {len(data) // 1024} KB (> {MAX_CARD_BYTES // 1000} KB): "
+            "Outlook on the web may show it blank"
+        )
     out_path.write_bytes(data)
     return len(data)
 

@@ -300,3 +300,11 @@ def test_save_card_png_fits_outlook_web_budget_and_keeps_alpha(tmp_path):
     saved = Image.open(out).convert("RGBA")
     assert saved.size == card_images.CARD_SIZE
     assert saved.getpixel((0, 0))[3] == 0  # rounded corner stays transparent
+
+
+def test_save_card_png_warns_when_budget_cannot_be_met(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(card_images, "MAX_CARD_BYTES", 10)
+    card = card_images.compose_card(card_images.placeholder_image(seed="big"), None)
+    size = card_images.save_card_png(card, tmp_path / "big.png")
+    assert size > 10
+    assert "Outlook on the web may show it blank" in capsys.readouterr().err
