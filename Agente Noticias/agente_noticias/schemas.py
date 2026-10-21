@@ -47,7 +47,7 @@ class Article(BaseModel):
 
 
 class ArticleEvaluation(BaseModel):
-    """Evaluacion del LLM para una noticia, pensada para una audiencia general."""
+    """Evaluacion del LLM para una noticia, pensada para todo el equipo de WIN."""
 
     reasoning: str = Field(
         ...,
@@ -85,15 +85,25 @@ class ArticleEvaluation(BaseModel):
             "abstract editorial illustration. No brand names, logos, text or real people."
         ),
     )
-    summary_es: str = Field(
-        ...,
-        description="Resumen en espanol, 2-3 frases, claro y sin marketing.",
-    )
-    en_simple: str = Field(
+    label_es: str = Field(
         ...,
         description=(
-            "Explicacion en lenguaje MUY sencillo (1-2 frases) para alguien sin "
-            "conocimientos tecnicos: que es y por que deberia importarle. Sin jerga."
+            "Etiqueta corta de la tarjeta en espanol (1-2 palabras, sin la empresa), "
+            "p. ej. 'Lanzamiento', 'Herramientas', 'Agentes', 'Investigacion', 'Negocios'."
+        ),
+    )
+    title_es: str = Field(
+        ...,
+        description=(
+            "Titulo de la tarjeta en espanol: corto y llamativo (maximo ~70 caracteres), "
+            "puede ser un poco provocador pero nunca exagerado ni falso."
+        ),
+    )
+    summary_es: str = Field(
+        ...,
+        description=(
+            "Resumen en espanol para todo el equipo: exactamente 2 frases, 20-30 palabras "
+            "en total, en lenguaje sencillo y sin jerga; cierra con un gancho si es natural."
         ),
     )
 
@@ -150,8 +160,8 @@ class ConceptOut(BaseModel):
     concepto_explicacion: str = Field(
         ...,
         description=(
-            "Explicacion SUPER simple en 2-3 frases para principiantes, con un "
-            "ejemplo cotidiano si ayuda."
+            "Explicacion SUPER simple en maximo 3 frases cortas para cualquier persona, "
+            "con un ejemplo cotidiano si ayuda."
         ),
     )
 
@@ -171,24 +181,23 @@ class JokeOut(BaseModel):
 class BriefingText(BaseModel):
     """Textos del briefing SIN el chiste (para refrescar al editar noticias)."""
 
-    headline: str = Field(..., description="Titulo principal del briefing.")
-    tldr: list[str] = Field(
-        ..., description="3 bullets ejecutivos en espanol (lectura de 30 segundos)."
+    headline: str = Field(
+        ..., description="Titular corto y atractivo del boletin (maximo ~60 caracteres)."
     )
     concepto_titulo: str = Field(
         default="", description='Titulo del "concepto del dia".'
     )
     concepto_explicacion: str = Field(
-        default="", description="Explicacion del concepto del dia (2-3 frases simples)."
+        default="",
+        description="Explicacion del concepto del dia (maximo 3 frases cortas y simples).",
     )
 
 
 class Briefing(BaseModel):
     """Briefing consolidado para el correo."""
 
-    headline: str = Field(..., description="Titulo principal del briefing.")
-    tldr: list[str] = Field(
-        ..., description="3 bullets ejecutivos en espanol (lectura de 30 segundos)."
+    headline: str = Field(
+        ..., description="Titular corto y atractivo del boletin (maximo ~60 caracteres)."
     )
     concepto_titulo: str = Field(
         default="",
@@ -197,8 +206,8 @@ class Briefing(BaseModel):
     concepto_explicacion: str = Field(
         default="",
         description=(
-            "Explicacion del concepto del dia en 2-3 frases, en lenguaje sencillo para "
-            "principiantes."
+            "Explicacion del concepto del dia en maximo 3 frases cortas, en lenguaje "
+            "sencillo para cualquier persona."
         ),
     )
     chiste: str = Field(

@@ -17,11 +17,10 @@ from agente_noticias.text_utils import normalize_title
 
 
 def persist_history_node(state: NewsState) -> dict:
-    send_result = state.get("send_result", "") or ""
     selected = state.get("selected_articles", []) or []
 
-    # Solo persistimos si hubo envio exitoso.
-    if "enviado" not in send_result.lower():
+    # Solo persistimos si hubo envio exitoso (flag explicito de outlook_sender).
+    if state.get("send_ok") is not True:
         print("[persist_history] no se envio el correo, no se guarda historial")
         return {}
 

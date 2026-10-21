@@ -4,10 +4,9 @@ from __future__ import annotations
 import re
 from difflib import SequenceMatcher
 
-from langchain.chat_models import init_chat_model
-
-from agente_noticias.config import DEDUP_WEEKS, get_model
+from agente_noticias.config import DEDUP_WEEKS
 from agente_noticias.db import fetch_recent_jokes
+from agente_noticias.llm import get_chat_model
 from agente_noticias.prompts import JOKE_SYSTEM, JOKE_USER_TEMPLATE
 from agente_noticias.schemas import JokeOut
 
@@ -55,7 +54,7 @@ def generate_unique_joke(
     recent = recent if recent is not None else get_recent_jokes()
     blocked = list(recent) + list(avoid or [])
 
-    llm = init_chat_model(get_model()).with_structured_output(JokeOut)
+    llm = get_chat_model().with_structured_output(JokeOut)
     last = ""
     for _ in range(max_attempts):
         try:

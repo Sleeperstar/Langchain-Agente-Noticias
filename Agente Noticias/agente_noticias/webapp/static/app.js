@@ -123,13 +123,6 @@ function renderDraft(draft) {
   }
 
   $("#headline").textContent = draft.headline || "";
-  const tldr = $("#tldr");
-  tldr.innerHTML = "";
-  (draft.tldr || []).forEach((b) => {
-    const li = document.createElement("li");
-    li.textContent = b;
-    tldr.appendChild(li);
-  });
 
   renderConcept(draft.concepto_titulo, draft.concepto_explicacion);
 
@@ -148,11 +141,10 @@ function renderArticles(articles, poolRemaining) {
     const pubd = a.published_date ? " &middot; " + escapeHtml(a.published_date) : "";
     const noPool = poolRemaining <= 0;
     card.innerHTML = `
-      <span class="cat">${escapeHtml(a.category || "")}</span>
-      <h3><a href="${escapeAttr(a.url)}" target="_blank" rel="noreferrer">${escapeHtml(a.title)}</a></h3>
-      <div class="src">${escapeHtml(a.source || "fuente")}${pubd}</div>
+      <span class="cat">${escapeHtml(a.label_es || a.category || "")}</span>
+      <h3><a href="${escapeAttr(a.url)}" target="_blank" rel="noreferrer">${escapeHtml(a.title_es || a.title)}</a></h3>
+      <div class="src">${escapeHtml(a.title)} &middot; ${escapeHtml(a.source || "fuente")}${pubd}${a.card_image ? "" : " &middot; sin imagen"}</div>
       <p>${escapeHtml(a.summary_es || "")}</p>
-      <div class="ensimple"><b>En simple:</b> ${escapeHtml(a.en_simple || "")}</div>
       <div class="relrow">
         <span class="lbl">Relevancia</span>
         <div class="reltrack"><div class="relfill" style="width:${(a.relevance_score || 0) * 10}%"></div></div>
@@ -306,7 +298,7 @@ function openPreview() {
 }
 
 async function sendEmail() {
-  if (!confirm("Enviar el correo a los directivos ahora?")) return;
+  if (!confirm("Enviar el correo a todo el equipo ahora?")) return;
   const btn = $("#btn-send");
   setLoading(btn, true, "Enviando...");
   $("#send-status").textContent = "";

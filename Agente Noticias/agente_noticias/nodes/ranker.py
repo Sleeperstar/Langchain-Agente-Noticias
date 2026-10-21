@@ -7,14 +7,12 @@ reservando 10 solo para lo verdaderamente landmark.
 """
 from __future__ import annotations
 
-from langchain.chat_models import init_chat_model
-
 from agente_noticias.config import (
     MAX_ARTICLES,
     MAX_CANDIDATES,
     MIN_RELEVANCE_SCORE,
-    get_model,
 )
+from agente_noticias.llm import get_chat_model
 from agente_noticias.prompts import RANKER_SYSTEM, RANKER_USER_TEMPLATE
 from agente_noticias.schemas import EvaluatedArticle, Ranking
 from agente_noticias.state import NewsState
@@ -51,7 +49,7 @@ def ranker_node(state: NewsState) -> dict:
     if not candidates:
         return {"selected_articles": []}
 
-    llm = init_chat_model(get_model()).with_structured_output(Ranking)
+    llm = get_chat_model().with_structured_output(Ranking)
     user = RANKER_USER_TEMPLATE.format(
         candidates_block=_format_candidates_block(candidates),
         max_articles=MAX_ARTICLES,

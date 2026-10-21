@@ -1,18 +1,56 @@
 """Outlook sender node: usa pywin32 contra la sesion activa de Outlook Desktop."""
 from __future__ import annotations
 
-from agente_noticias.config import LOGO_PATH, get_recipients
+import sys
+from pathlib import Path
+from typing import Iterable
+
+from agente_noticias.config import HEADER_PATH, get_recipients
+from agente_noticias.email_template import HEADER_CID
 from agente_noticias.state import NewsState
 
 OL_MAIL_ITEM = 0  # constante COM olMailItem
 OL_BY_VALUE = 1  # olByValue para adjuntos
-# Property tags MAPI para embeber el logo por Content-ID.
+# MAPI property tags to embed an attachment by Content-ID (inline image).
 PR_ATTACH_CONTENT_ID = "http://schemas.microsoft.com/mapi/proptag/0x3712001F"
 PR_ATTACH_HIDDEN = "http://schemas.microsoft.com/mapi/proptag/0x7FFE000B"
 
 
-def _send_via_outlook(to: str, subject: str, html_body: str) -> str:
+def attach_inline_images(
+    mail, html_body: str, images: Iterable[tuple[str, str]]
+) -> list[str]:
+    """Attaches each (path, cid) referenced as `cid:<cid>` in `html_body` as a hidden
+    inline image. Returns the attached CIDs; a failing image is logged and skipped."""
+    attached: list[str] = []
+    for path, cid in images:
+        if f"cid:{cid}" not in html_body or not Path(path).is_file():
+            continue
+        try:
+            attachment = mail.Attachments.Add(
+                Source=str(path),
+                Type=OL_BY_VALUE,
+                Position=0,
+                DisplayName=cid,
+            )
+            pa = attachment.PropertyAccessor
+            pa.SetProperty(PR_ATTACH_CONTENT_ID, cid)
+            pa.SetProperty(PR_ATTACH_HIDDEN, True)
+            attached.append(cid)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[outlook_sender] no se pudo embeber {cid}: {exc}")
+    return attached
+
+
+def _send_via_outlook(
+    to: str,
+    subject: str,
+    html_body: str,
+    inline_images: Iterable[tuple[str, str]] | None = None,
+) -> str:
     """Crea y envia un correo HTML usando la sesion activa de Outlook.
+
+    `inline_images` son pares (ruta, Content-ID) que el HTML referencia con `cid:`.
+    Si es None se embebe solo el header (compatibilidad).
 
     Requiere que Outlook Desktop este abierto y autenticado.
 
@@ -29,6 +67,9 @@ def _send_via_outlook(to: str, subject: str, html_body: str) -> str:
             "pywin32 no esta instalado. Ejecuta `uv add pywin32`."
         ) from exc
 
+    if inline_images is None:
+        inline_images = [(str(HEADER_PATH), HEADER_CID)]
+
     pythoncom.CoInitialize()
     try:
         try:
@@ -42,20 +83,8 @@ def _send_via_outlook(to: str, subject: str, html_body: str) -> str:
         mail.To = to
         mail.Subject = subject
 
-        # Embeber el logo por CID si existe (metodo robusto para Outlook).
-        if LOGO_PATH.exists() and "cid:winlogo" in html_body:
-            try:
-                attachment = mail.Attachments.Add(
-                    Source=str(LOGO_PATH),
-                    Type=OL_BY_VALUE,
-                    Position=0,
-                    DisplayName="winlogo",
-                )
-                pa = attachment.PropertyAccessor
-                pa.SetProperty(PR_ATTACH_CONTENT_ID, "winlogo")
-                pa.SetProperty(PR_ATTACH_HIDDEN, True)
-            except Exception as exc:  # noqa: BLE001
-                print(f"[outlook_sender] no se pudo embeber el logo: {exc}")
+        # Embed images by CID (robust way to show them in Outlook).
+        attach_inline_images(mail, html_body, inline_images)
 
         mail.HTMLBody = html_body
         mail.Send()
@@ -68,9 +97,19 @@ def outlook_sender_node(state: NewsState) -> dict:
     """Nodo del grafo que envia el correo (flujo automatico, sin HITL)."""
     recipients = get_recipients()
     to = "; ".join(recipients)
-    subject = state.get("subject") or "Briefing IA - Win Internet"
+    subject = state.get("subject") or "Noticias IA - WIN Internet"
     html_body = state.get("html_body") or ""
 
-    result = _send_via_outlook(to=to, subject=subject, html_body=html_body)
+    try:
+        result = _send_via_outlook(
+            to=to,
+            subject=subject,
+            html_body=html_body,
+            inline_images=state.get("inline_images"),
+        )
+    except Exception as exc:  # noqa: BLE001 - Outlook closed, COM error, etc.
+        error = f"ERROR: no se pudo enviar el correo via Outlook: {exc}"
+        print(f"[outlook_sender] {error}", file=sys.stderr)
+        return {"send_result": error, "send_ok": False}
     print(f"[outlook_sender] {result}")
-    return {"send_result": result}
+    return {"send_result": result, "send_ok": True}

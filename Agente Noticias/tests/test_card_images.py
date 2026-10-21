@@ -21,6 +21,7 @@ from agente_noticias.card_images import (
 from agente_noticias.config import COMPANY_LOGOS_DIR
 from agente_noticias.logos import COMPANY_DISPLAY_NAMES
 from agente_noticias.nodes import persist_history
+from agente_noticias.nodes import card_images as card_images_node_mod
 from agente_noticias.nodes.card_images import attach_card_image, project_relative
 from agente_noticias.schemas import (
     Article,
@@ -140,8 +141,8 @@ def test_fallback_uses_placeholder_when_everything_fails(tmp_path, monkeypatch):
     )
 
     assert out.is_file()
-    img = Image.open(out)
-    assert img.size == (528, 370) and img.mode == "RGBA"
+    img = Image.open(out)  # palette PNG (see save_card_png)
+    assert img.size == (528, 370) and img.convert("RGBA").getpixel((0, 0))[3] == 0
 
 
 def test_fallback_uses_og_image_when_ai_fails(tmp_path, monkeypatch):
@@ -163,8 +164,8 @@ def test_fallback_uses_og_image_when_ai_fails(tmp_path, monkeypatch):
     )
 
     assert calls == ["https://news.example.com/a"]
-    r, g, b, a = Image.open(out).getpixel((W // 2, H // 2))
-    assert (r, g, b, a) == (255, 0, 0, 255)
+    r, g, b, a = Image.open(out).convert("RGBA").getpixel((W // 2, H // 2))
+    assert (r, g, b) == (255, 0, 0) and a >= 250  # palette quantization may round alpha
 
 
 def test_images_disabled_skips_ai(tmp_path, monkeypatch):
@@ -183,8 +184,9 @@ def _evaluated(**article_extra) -> EvaluatedArticle:
             reasoning="r",
             relevance_score=8,
             category="IA agentica",
+            label_es="Agentes",
+            title_es="OpenAI lanza un agente",
             summary_es="Resumen.",
-            en_simple="Simple.",
             company="openai",
         ),
     )
@@ -201,7 +203,7 @@ def test_attach_card_image_sets_path_and_persist_passes_relative_path(tmp_path, 
     monkeypatch.setattr(persist_history, "save_briefing", lambda **kw: captured.update(kw) or "id-1")
     monkeypatch.setattr(persist_history, "project_relative", lambda p: f"rel:{p}")
     persist_history.persist_history_node(
-        {"send_result": "Enviado OK", "selected_articles": [item], "subject": "s"}
+        {"send_ok": True, "send_result": "ok", "selected_articles": [item], "subject": "s"}
     )
 
     saved = captured["articles"][0]
@@ -217,3 +219,92 @@ def test_project_relative_and_card_filename():
     name = card_filename("¡OpenAI lanza un agente que trabaja mientras duermes!", "https://x.com/a")
     assert name.startswith("openai-lanza-un-agente-que-trabaja-mientras-duermes-")
     assert name.endswith(".png")
+
+
+def test_persist_history_skips_when_send_not_ok(monkeypatch):
+    monkeypatch.setattr(persist_history, "save_briefing", lambda **kw: pytest.fail("saved"))
+    item = _evaluated()
+    # The old heuristic matched "enviado" in the text; only the explicit flag counts now.
+    for state in (
+        {"send_ok": False, "send_result": "Correo enviado? no", "selected_articles": [item]},
+        {"send_result": "Correo enviado a x", "selected_articles": [item]},
+    ):
+        assert persist_history.persist_history_node(state) == {}
+
+
+def test_card_images_node_isolates_a_failing_card(tmp_path, monkeypatch, capsys):
+    good, bad = _evaluated(), _evaluated()
+    bad = bad.model_copy(update={"article": bad.article.model_copy(update={"url": "https://bad.example.com"})})
+
+    def fake_attach(item, out_dir=None):
+        if item.article.url == "https://bad.example.com":
+            raise RuntimeError("unexpected")
+        return item.model_copy(update={"card_image_path": str(tmp_path / "ok.png")})
+
+    monkeypatch.setattr(card_images_node_mod, "attach_card_image", fake_attach)
+    result = card_images_node_mod.card_images_node({"selected_articles": [good, bad]})
+
+    out = result["selected_articles"]
+    assert [it.article.url for it in out] == [good.article.url, "https://bad.example.com"]
+    assert out[0].card_image_path and out[1].card_image_path is None
+    assert "card task failed for https://bad.example.com" in capsys.readouterr().err
+
+
+def test_attach_card_image_never_raises(monkeypatch):
+    def boom(*a, **k):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(card_images_node_mod, "build_card_image", boom)
+    item = attach_card_image(_evaluated())
+    assert item.card_image_path is None
+
+
+class _FakeResp:
+    def __init__(self, status=200, json_data=None, text=""):
+        self.status_code, self._json, self.text = status, json_data, text
+
+    def json(self):
+        if self._json is None:
+            raise ValueError("not json")
+        return self._json
+
+
+@pytest.mark.parametrize(
+    "resp",
+    [
+        _FakeResp(text="<html>gateway</html>"),
+        _FakeResp(json_data=["not", "a", "dict"]),
+        _FakeResp(json_data={"data": [{"b64_json": "%%%not-base64%%%"}]}),
+        _FakeResp(json_data={"data": [{"b64_json": base64.b64encode(b"not an image").decode()}]}),
+    ],
+)
+def test_generate_illustration_bad_200_raises_generation_error(monkeypatch, resp):
+    monkeypatch.setattr(card_images.httpx, "post", lambda *a, **k: resp)
+    with pytest.raises(card_images.ImageGenerationError):
+        card_images.generate_illustration("robot", api_key="k", model="m", quality="low")
+
+
+def test_open_image_rejects_oversized_pixels(monkeypatch):
+    buf = io.BytesIO()
+    _solid((1, 2, 3), (400, 300)).save(buf, "PNG")
+    monkeypatch.setattr(card_images, "MAX_SOURCE_PIXELS", 100_000)
+    with pytest.raises(ValueError, match="too large"):
+        card_images._open_image(buf.getvalue())
+
+
+def test_save_card_png_fits_outlook_web_budget_and_keeps_alpha(tmp_path):
+    card = card_images.compose_card(card_images.placeholder_image(seed="owa"), "openai")
+    out = tmp_path / "card.png"
+    size = card_images.save_card_png(card, out)
+    assert size == out.stat().st_size <= card_images.MAX_CARD_BYTES
+    saved = Image.open(out).convert("RGBA")
+    assert saved.size == card_images.CARD_SIZE
+    assert saved.getpixel((0, 0))[3] == 0  # rounded corner stays transparent
+
+
+def test_save_card_png_warns_when_budget_cannot_be_met(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(card_images, "MAX_CARD_BYTES", 10)
+    card = card_images.compose_card(card_images.placeholder_image(seed="big"), None)
+    size = card_images.save_card_png(card, tmp_path / "big.png")
+    assert size > 10
+    assert "Outlook on the web may show it blank" in capsys.readouterr().err
