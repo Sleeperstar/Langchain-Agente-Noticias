@@ -284,7 +284,8 @@ def placeholder_image(seed: str = "") -> Image.Image:
 # --------------------------------------------------------------------------- #
 # Composition
 # --------------------------------------------------------------------------- #
-def _badge_font(size: int) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
+def bold_font(size: int) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
+    """Bold sans font: Segoe UI Bold, then Arial Bold, then DejaVu / Pillow default."""
     for path in _FONT_CANDIDATES:
         if path.is_file():
             try:
@@ -314,7 +315,7 @@ def _draw_badge(img: Image.Image, company: str, logos_dir: Path | None) -> None:
     """White tab at the bottom-left with the logo + company name."""
     w, h = img.size
     name = display_name(company)
-    font = _badge_font(BADGE_FONT_SIZE)
+    font = bold_font(BADGE_FONT_SIZE)
     draw = ImageDraw.Draw(img)
     logo = _load_logo(company, logos_dir)
 
@@ -382,12 +383,15 @@ def _illustration_subject(title: str, summary: str, visual_subject: str) -> str:
 
 
 def save_card_png(card: Image.Image, out_path: Path) -> int:
-    """Save the card as a palette PNG (keeps alpha corners) under MAX_CARD_BYTES.
+    """Save the card as PNG under MAX_CARD_BYTES, keeping alpha corners.
 
-    Tries fewer colors until the file fits; returns the final size in bytes.
+    Full color first (smooth gradients like the placeholder band when quantized), then
+    palette PNGs with fewer colors until the file fits; returns the final size in bytes.
     """
-    data = b""
-    for colors in CARD_PALETTE_STEPS:
+    buf = io.BytesIO()
+    card.save(buf, "PNG", optimize=True)
+    data = buf.getvalue()
+    for colors in CARD_PALETTE_STEPS if len(data) > MAX_CARD_BYTES else ():
         quantized = card.convert("RGBA").quantize(colors=colors, method=Image.Quantize.FASTOCTREE)
         buf = io.BytesIO()
         quantized.save(buf, "PNG", optimize=True)

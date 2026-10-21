@@ -3,10 +3,15 @@ from __future__ import annotations
 
 from datetime import date
 
+import re
+from pathlib import Path
+
 import pytest
 from PIL import Image
 
 from agente_noticias import email_template
+from agente_noticias.card_images import MAX_CARD_BYTES
+from agente_noticias.config import HEADER_PATH
 from agente_noticias.email_template import (
     card_label,
     display_headline,
@@ -30,9 +35,10 @@ def _png(path) -> str:
 
 @pytest.fixture()
 def logo(tmp_path, monkeypatch):
-    path = tmp_path / "win_logo.png"
+    """Header banner stand-in (keeps tests independent from the real asset)."""
+    path = tmp_path / "header.png"
     _png(path)
-    monkeypatch.setattr(email_template, "LOGO_PATH", path)
+    monkeypatch.setattr(email_template, "HEADER_PATH", path)
     return path
 
 
@@ -81,19 +87,19 @@ def test_send_mode_renders_every_card_with_cid_refs(tmp_path, logo):
     for i in range(1, 4):
         assert f'src="cid:card{i}"' in html
         assert f"Titulo tarjeta {i - 1}" in html
-    assert 'src="cid:winlogo"' in html
+    assert 'src="cid:header"' in html
     assert "data:image" not in html
     assert "Leer más" in html and "Esta semana en IA" in html
     assert "20 de octubre de 2026" in html
 
     cids = [cid for _, cid in inline_images(items)]
-    assert cids == ["winlogo", "card1", "card2", "card3"]
+    assert cids == ["header", "card1", "card2", "card3"]
 
 
 def test_preview_mode_uses_data_uris(tmp_path, logo):
     html = _render(_items(tmp_path, 3), "data")
 
-    assert html.count("data:image/png;base64,") == 4  # logo + 3 cards
+    assert html.count("data:image/png;base64,") == 4  # header + 3 cards
     assert "cid:" not in html
 
 
@@ -107,7 +113,7 @@ def test_card_without_image_renders_text_only(tmp_path, logo):
     assert html.count('class="card-img"') == 2
     assert "Titulo tarjeta 9" in html and "Titulo tarjeta 10" in html
     assert "cid:card3" not in html and "cid:card4" not in html
-    assert [cid for _, cid in inline_images(items)] == ["winlogo", "card1", "card2"]
+    assert [cid for _, cid in inline_images(items)] == ["header", "card1", "card2"]
 
 
 def test_no_tldr_and_concept_joke_kept(tmp_path, logo):
@@ -144,12 +150,58 @@ def test_missing_title_es_falls_back_and_text_is_escaped(tmp_path, logo):
     assert "&lt;script&gt;" in html
 
 
-def test_no_logo_file_falls_back_to_text(tmp_path, monkeypatch):
-    monkeypatch.setattr(email_template, "LOGO_PATH", tmp_path / "nope.png")
+def test_no_header_file_falls_back_to_text(tmp_path, monkeypatch):
+    monkeypatch.setattr(email_template, "HEADER_PATH", tmp_path / "nope.png")
     items = _items(tmp_path, 1)
     html = _render(items, "cid")
-    assert "cid:winlogo" not in html
+    assert "cid:header" not in html
+    assert "Noticias IA" in html and "La IA se pone a trabajar" in html
     assert [cid for _, cid in inline_images(items)] == ["card1"]
+
+
+def test_header_is_a_fluid_image_with_date_and_headline_below(tmp_path, logo):
+    html = _render(_items(tmp_path, 1), "cid")
+    header = re.search(r'<img src="cid:header"[^>]*>', html)
+    assert header is not None
+    assert 'width="600"' in header.group(0)
+    assert "width:100%" in header.group(0) and "height:auto" in header.group(0)
+    # Date and headline follow the banner as text on the body background.
+    after = html[header.end():]
+    assert after.index("20 de octubre de 2026") < after.index("La IA se pone a trabajar")
+    assert "@media (max-width:620px)" in html
+
+
+@pytest.mark.parametrize("mode", ["cid", "data"])
+def test_no_orange_or_yellow_backgrounds(tmp_path, logo, mode):
+    """OWA dark mode recolors light backgrounds (orange turns red): use images/borders."""
+    html = _render(_items(tmp_path, 2), mode).lower()
+    for color in (email_template.ORANGE.lower(), email_template.YELLOW.lower()):
+        assert f'bgcolor="{color}"' not in html
+        assert f"background-color:{color}" not in html
+    assert f"border-top:4px solid {email_template.ORANGE.lower()}" in html  # accent bar
+
+
+def test_real_header_asset_fits_outlook_web_budget():
+    assert HEADER_PATH.is_file(), "run scripts/build_header.py"
+    assert HEADER_PATH.stat().st_size <= MAX_CARD_BYTES
+    with Image.open(HEADER_PATH) as img:
+        assert img.size == (1200, 220)
+        rgba = img.convert("RGBA")
+        assert rgba.getpixel((0, 0))[3] == 0  # rounded top corner
+        assert rgba.getpixel((0, 219)) == (255, 90, 10, 255)  # square corner, brand orange
+
+
+def test_every_inline_image_fits_outlook_web_budget(tmp_path, monkeypatch):
+    from agente_noticias.card_images import compose_card, placeholder_image, save_card_png
+
+    items = []
+    for i in range(3):
+        out = tmp_path / f"real{i}.png"
+        save_card_png(compose_card(placeholder_image(seed=str(i)), COMPANIES[i]), out)
+        items.append(_item(i, str(out), company=COMPANIES[i]))
+    images = inline_images(items)
+    assert [cid for _, cid in images] == ["header", "card1", "card2", "card3"]
+    assert all(Path(path).stat().st_size <= MAX_CARD_BYTES for path, _ in images)
 
 
 # --------------------------------------------------------------------------- #
@@ -199,9 +251,9 @@ def test_attach_inline_images_only_referenced_existing_files(tmp_path, logo, cap
 
     attached = attach_inline_images(mail, html, images)
 
-    assert attached == ["winlogo", "card1", "card3"]
+    assert attached == ["header", "card1", "card3"]
     cids = [a.props[PR_ATTACH_CONTENT_ID] for a in mail.Attachments.items]
-    assert cids == ["winlogo", "card1", "card3"]
+    assert cids == ["header", "card1", "card3"]
     assert all(a.props[PR_ATTACH_HIDDEN] is True for a in mail.Attachments.items)
     assert "card2" in capsys.readouterr().out
 

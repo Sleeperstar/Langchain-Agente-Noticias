@@ -15,7 +15,12 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from agente_noticias.card_images import card_filename, compose_card, placeholder_image  # noqa: E402
+from agente_noticias.card_images import (  # noqa: E402
+    card_filename,
+    compose_card,
+    placeholder_image,
+    save_card_png,
+)
 from agente_noticias.config import OUTPUT_DIR  # noqa: E402
 from agente_noticias.email_template import render_email  # noqa: E402
 from agente_noticias.schemas import (  # noqa: E402
@@ -108,7 +113,7 @@ def build_items(cards_dir: Path = SAMPLE_CARDS_DIR) -> list[EvaluatedArticle]:
     for i, n in enumerate(NEWS, start=1):
         url = f"https://example.com/noticias-ia/{i}"
         out = cards_dir / card_filename(n["title"], url)
-        compose_card(placeholder_image(seed=url), n["company"]).save(out, "PNG", optimize=True)
+        save_card_png(compose_card(placeholder_image(seed=url), n["company"]), out)
         items.append(
             EvaluatedArticle(
                 article=Article(title=n["title"], url=url, source="example.com"),

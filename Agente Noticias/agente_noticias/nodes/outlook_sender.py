@@ -5,8 +5,8 @@ import sys
 from pathlib import Path
 from typing import Iterable
 
-from agente_noticias.config import LOGO_PATH, get_recipients
-from agente_noticias.email_template import WIN_LOGO_CID
+from agente_noticias.config import HEADER_PATH, get_recipients
+from agente_noticias.email_template import HEADER_CID
 from agente_noticias.state import NewsState
 
 OL_MAIL_ITEM = 0  # constante COM olMailItem
@@ -50,7 +50,7 @@ def _send_via_outlook(
     """Crea y envia un correo HTML usando la sesion activa de Outlook.
 
     `inline_images` son pares (ruta, Content-ID) que el HTML referencia con `cid:`.
-    Si es None se embebe solo el logo de WIN (compatibilidad).
+    Si es None se embebe solo el header (compatibilidad).
 
     Requiere que Outlook Desktop este abierto y autenticado.
 
@@ -68,7 +68,7 @@ def _send_via_outlook(
         ) from exc
 
     if inline_images is None:
-        inline_images = [(str(LOGO_PATH), WIN_LOGO_CID)]
+        inline_images = [(str(HEADER_PATH), HEADER_CID)]
 
     pythoncom.CoInitialize()
     try:

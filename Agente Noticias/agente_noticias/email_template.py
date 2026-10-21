@@ -2,7 +2,7 @@
 
 Layout (600px, light theme, WIN palette), inspired by DataCamp's "This week in AI":
 
-    header (WIN logo + "Noticias IA" + date + headline)
+    header banner image (WIN logo + "Noticias IA") -> date + headline
     -> "Concepto del día" box
     -> "Esta semana en IA": one card per news item (264px image left, text right)
     -> closing joke box
@@ -13,8 +13,14 @@ Outlook desktop (Word engine) safe: role="presentation" tables, inline styles,
 wrapper. A `@media (max-width:620px)` block stacks the card columns on phones
 (Gmail app / iOS Mail honor it; Outlook desktop ignores it).
 
+Outlook on the web dark mode rewrites light background colors (the WIN orange
+becomes a dark red) but never recolors images, text colors or borders. So no
+orange/yellow surface uses `bgcolor`/`background-color`: the orange header is a
+static image (`scripts/build_header.py`) and accents are CSS borders. Every inline
+image must stay under ~100 KB (OWA drops larger ones, see `card_images.MAX_CARD_BYTES`).
+
 Images are referenced in one of two modes:
-- ``"cid"``: ``cid:winlogo`` / ``cid:card<N>`` for sending; the sender attaches the
+- ``"cid"``: ``cid:header`` / ``cid:card<N>`` for sending; the sender attaches the
   files returned by :func:`inline_images` with those Content-IDs.
 - ``"data"``: base64 data URIs, for the browser preview and the webapp iframe.
 """
@@ -29,7 +35,7 @@ from typing import Literal
 from jinja2 import Environment, select_autoescape
 from markupsafe import Markup
 
-from agente_noticias.config import LOGO_PATH
+from agente_noticias.config import HEADER_PATH
 from agente_noticias.logos import display_name
 from agente_noticias.schemas import Briefing, EvaluatedArticle
 
@@ -46,7 +52,9 @@ TEXT_COLOR = "#1F2937"
 MUTED_COLOR = "#6B7280"
 FONT_STACK = Markup("'Poppins', 'Segoe UI', Arial, sans-serif")
 
-WIN_LOGO_CID = "winlogo"
+HEADER_CID = "header"
+# Header PNG is 1200x220 (2x); displayed fluid, 600px wide max.
+HEADER_IMG_WIDTH = 600
 # Card PNGs are 528x370 (2x); they are displayed at 264x185.
 CARD_IMG_WIDTH = 264
 CARD_IMG_HEIGHT = 185
@@ -137,25 +145,20 @@ TEMPLATE = """\
     <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" align="center" bgcolor="{{ white }}"
            style="width:100%;max-width:600px;background-color:{{ white }};border-radius:12px;">
 
-      <!-- header -->
+      <!-- header: banner image (immune to dark-mode background recoloring) -->
       <tr>
-        <td class="px" bgcolor="{{ orange }}" style="background-color:{{ orange }};padding:24px 24px 28px 24px;border-radius:12px 12px 0 0;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-            <tr>
-              <td align="left" valign="middle" style="vertical-align:middle;">
-                {%- if logo_src %}
-                <img src="{{ logo_src }}" width="110" height="57" alt="WIN" style="display:block;width:110px;height:57px;border:0;">
-                {%- else %}
-                <span style="font-family:{{ font }};font-size:40px;font-weight:700;color:{{ white }};">win</span>
-                {%- endif %}
-              </td>
-              <td align="right" valign="middle" style="vertical-align:middle;font-family:{{ font }};font-size:13px;line-height:1.4;color:#FFE6D5;">
-                {{ today }}
-              </td>
-            </tr>
-          </table>
-          <p style="margin:16px 0 4px 0;font-family:{{ font }};font-size:12px;font-weight:600;line-height:1.25;letter-spacing:1.5px;text-transform:uppercase;color:#FFE6D5;">Noticias IA</p>
-          <p class="headline" style="margin:0;font-family:{{ font }};font-size:24px;font-weight:700;line-height:1.3;color:{{ white }};">{{ headline }}</p>
+        <td style="padding:0;font-size:0;line-height:0;">
+          {%- if header_src %}
+          <img src="{{ header_src }}" width="{{ header_w }}" alt="WIN · Noticias IA" style="display:block;width:100%;max-width:{{ header_w }}px;height:auto;border:0;">
+          {%- else %}
+          <p style="margin:0;padding:24px 24px 0 24px;font-family:{{ font }};font-size:28px;font-weight:700;line-height:1.2;color:{{ orange }};">win <span style="font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;">Noticias IA</span></p>
+          {%- endif %}
+        </td>
+      </tr>
+      <tr>
+        <td class="px" style="padding:24px 24px 0 24px;">
+          <p style="margin:0 0 6px 0;font-family:{{ font }};font-size:13px;font-weight:400;line-height:1.4;color:{{ muted }};">{{ today }}</p>
+          <p class="headline" style="margin:0;font-family:{{ font }};font-size:24px;font-weight:700;line-height:1.3;color:{{ black }};">{{ headline }}</p>
         </td>
       </tr>
 
@@ -182,8 +185,9 @@ TEMPLATE = """\
       <tr>
         <td class="px" style="padding:40px 24px 24px 24px;">
           <p style="margin:0 0 10px 0;font-family:{{ font }};font-size:24px;font-weight:700;line-height:1.25;color:{{ black }};">Esta semana en IA</p>
+          <!-- accent bar as a border: OWA dark mode recolors backgrounds, not borders -->
           <table role="presentation" width="48" cellpadding="0" cellspacing="0" border="0">
-            <tr><td width="48" height="4" bgcolor="{{ orange }}" style="width:48px;height:4px;font-size:1px;line-height:1px;background-color:{{ orange }};">&nbsp;</td></tr>
+            <tr><td width="48" style="width:48px;height:0;border-top:4px solid {{ orange }};font-size:0;line-height:0;mso-line-height-rule:exactly;">&nbsp;</td></tr>
           </table>
         </td>
       </tr>
@@ -257,9 +261,9 @@ def file_data_uri(path: Path | str | None, mime: str = "image/png") -> str:
     return f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
 
 
-def logo_data_uri() -> str:
-    """WIN logo as a data URI (browser preview)."""
-    return file_data_uri(LOGO_PATH)
+def header_data_uri() -> str:
+    """Header banner as a data URI (browser preview)."""
+    return file_data_uri(HEADER_PATH)
 
 
 def card_cid(index: int) -> str:
@@ -277,8 +281,8 @@ def _card_path(item: EvaluatedArticle) -> Path | None:
 def inline_images(selected: list[EvaluatedArticle]) -> list[tuple[str, str]]:
     """(path, cid) of every image the "cid" render references, for the sender to attach."""
     images: list[tuple[str, str]] = []
-    if LOGO_PATH.is_file():
-        images.append((str(LOGO_PATH), WIN_LOGO_CID))
+    if HEADER_PATH.is_file():
+        images.append((str(HEADER_PATH), HEADER_CID))
     for i, item in enumerate(selected):
         path = _card_path(item)
         if path is not None:
@@ -339,9 +343,9 @@ def render_email(
     when sending); `images="data"` embeds base64 data URIs (browser preview).
     """
     if images == "cid":
-        logo_src = f"cid:{WIN_LOGO_CID}" if LOGO_PATH.is_file() else ""
+        header_src = f"cid:{HEADER_CID}" if HEADER_PATH.is_file() else ""
     else:
-        logo_src = logo_data_uri()
+        header_src = header_data_uri()
     cards = [_card_view(item, i, images) for i, item in enumerate(selected)]
     headline = display_headline(briefing.headline)
     preheader = cards[0]["title"] if cards else headline
@@ -351,7 +355,8 @@ def render_email(
         preheader=preheader,
         cards=cards,
         today=spanish_date(today or date.today()),
-        logo_src=logo_src,
+        header_src=header_src,
+        header_w=HEADER_IMG_WIDTH,
         img_w=CARD_IMG_WIDTH,
         img_h=CARD_IMG_HEIGHT,
         font=FONT_STACK,
