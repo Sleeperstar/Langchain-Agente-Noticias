@@ -51,9 +51,9 @@ what the new template requires.
 - [x] T2 SQLite history store replacing Supabase (`db.py`), same public interface; tests. Route: delegated (writer; 4+ files trigger).
 - [x] T3 Article model: `image_url`, `company`; researcher collects images/og:image; evaluator extracts company. Route: delegated (writer, combined with T4).
 - [x] T4 Card image pipeline: OpenRouter illustration + Pillow logo badge + og:image fallback; logo library. Route: delegated.
-- [ ] T5 Template redesign: image-left cards, concept + joke kept, TL;DR removed, CID for all images, mobile + Outlook. Route: delegated.
-- [ ] T6 Prompts/tone for all staff (short punchy titles, 2-sentence summaries ~20–30 words). Route: delegated with T5 or inline.
-- [ ] T7 End-to-end dry run → `output/preview.html`; manual check in Outlook desktop + mobile. Route: inline.
+- [x] T5 Template redesign: image-left cards, concept + joke kept, TL;DR removed, CID for all images, mobile + Outlook. Route: delegated.
+- [x] T6 Prompts/tone for all staff (short punchy titles, 2-sentence summaries ~20–30 words). Route: delegated with T5 or inline.
+- [x] T7 End-to-end dry run → `output/preview.html`; manual check in Outlook desktop + mobile. Route: inline.
 
 ## Acceptance criteria
 - Dry run produces a preview with 5 cards, each with an image + company badge, concept and joke.
@@ -97,5 +97,21 @@ what the new template requires.
 - Review 4 (`review-8a3460738fc70b3b`, T7a+T7c, 753 lines) → approved, acknowledged, burned. Boundary → `3f69fcb`. Advisories: legacy bare model id (fixed: `get_model()` prefixes `openai/` + test); webapp `send_now` (no change needed: already refuses empty draft and persists only after a non-raising send); brittle private-API test (suggestion, left).
 - T7b dry run #2 (OpenRouter): 29 evaluated → 5 selected, 5/5 AI cards, preview rendered; parent screenshot checked (`real_desktop.png`). exit 0. Note: 3/5 news had no company badge (government/industry news) — expected.
 
-## Next step
-Ask user before a real test send to jquispeh@win.pe only (outward-facing); then Outlook desktop + phone check.
+- User decision (2026-10-20): 3 news items instead of 5 → `MAX_ARTICLES = 3` (commit `01c6195`, 55 tests pass).
+- First real send (user-approved, recipient jquispeh@win.pe only): 29 evaluated → 3 selected (Google, Meta, Microsoft), 3/3 AI cards, Outlook "Correo enviado", history row saved in SQLite (1 briefing, 3 articles with company + image_path). exit 0.
+
+- User feedback: joke not funny. Root cause: joke prompts inherited the motivational BRAND_VOICE → pep talks, no punchline. Fix `d5870bb` (JOKE_CRAFT rules: setup + punchline, office/tech wordplay, no moral/"winners" endings). Also `1e13a20`: `nl2br` filter so two-line dialogue jokes keep their line break (56 tests pass).
+- User picked option 1 ("lluvia de ideas" → "precipitación de PDFs"); resent the same briefing (preview.html with data URIs → CID, 4 images) to jquispeh@win.pe only; history row joke updated in SQLite.
+
+- User check (2026-10-21): phone + Outlook desktop OK. Outlook web (dark mode): cards blank + orange looks red.
+  - Diagnosed via Claude in Chrome on OWA: card `<img>` stayed a 1x1 GIF placeholder while the 21 KB logo became a blob. Diagnostic send (user-approved, self only): 40 KB JPG and 43 KB palette PNG render, 283 KB PNG does not → size limit. Fix `50dcd5e`: palette PNG ≤100 KB (real cards 27–43 KB). 57 tests pass.
+  - OWA dark mode rewrites `background-color:#FF5A0A` → `rgb(177,3,0)` (original kept in `data-ogsb`). Tried `background-image: linear-gradient(...)` and `[data-ogsb]` style rule: both stripped by OWA (no effect). Pending user decision on header approach.
+
+- Decision (user, 2026-10-21): header as static image (must stay responsive). Insight: OWA dark mode recolors light backgrounds but keeps text/border colors with good contrast → accent bar moves from bgcolor to `border-top`.
+- [x] T7d header image (`scripts/build_header.py` → `assets/header_noticias_ia.png` ≤100 KB, fluid width) + border accent + audit. Route: delegated (3+ files). Commit `4b7b5e1` (+ `3503683` budget warning, review 5 advisory).
+
+- Review 5 (`review-4117362fe9e54737`, 420 lines) → approved, acknowledged, burned. Boundary → `4b7b5e1`. Advisory (silent oversize card) fixed in `3503683` (32-color step + warning, 63 tests pass).
+- Real send #2 (user-approved, self only, 2026-10-21): history_filter read SQLite (28 → 28, no overlap), 3/3 AI cards 31–42 KB, sent. Verified in Outlook web dark mode via Claude in Chrome: header + 3 cards all loaded (blob), 0 orange backgrounds recolored, accent border stays rgb(255,90,10). Desktop + phone previously confirmed by user.
+
+## Status
+All tasks T1–T7 done. PRs #1 → #2 → #3 open (merge in order). Follow-ups (not started): notebook still uses `briefing.tldr`; per-card image cost unknown; webapp not manually tested; schedule the weekly Task Scheduler run and switch NEWS_RECIPIENT to the all-staff list when the user decides.
