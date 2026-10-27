@@ -112,6 +112,9 @@ Reglas:
    CERCANIA: prefiere noticias que cualquier persona entienda y pueda comentar. Descarta
    las muy tecnicas o academicas (teoria matematica, papers, benchmarks especializados)
    salvo que su impacto en la vida diaria sea evidente.
+   EMPRESA PROTAGONISTA: cada noticia elegida debe tener UNA empresa protagonista (cada
+   tarjeta lleva su logo). Descarta noticias de gobiernos, tendencias generales o sin
+   empresa clara (`Empresa: -`).
 3. Asigna a cada una un `final_score` de 1 a 10 que refleje su importancia RELATIVA
    dentro del set. Los scores DEBEN estar diferenciados: evita empates, usa el rango.
    Solo la noticia mas trascendente de la semana puede llegar a 10; las demas deben
