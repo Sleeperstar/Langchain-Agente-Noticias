@@ -33,12 +33,17 @@ Out of scope: webapp changes, Task Scheduler setup.
 - RDD: on (global).
 
 ## Tasks
-- [ ] A1 Save draft on dry run + `send_draft.py` + tests + README. Route: delegated (writer; 3+ files).
+- [x] A1 Save draft on dry run + `send_draft.py` + tests + README. Route: delegated (writer; 3+ files). Commit `3f3aa89`, 80 tests pass (parent re-run).
 - [ ] A2 Generate today's draft, show preview to user, wait for approval. Route: inline.
 - [ ] A3 Send approved draft to the user-given recipients. Route: inline (after explicit approval).
 
 ## Progress / Evidence
 - PRs #1–#3 merged into master with merge commits (2026-10-27): `b24046b`, `37de293`, `7376c34`.
 
+- A2 draft generated 2026-10-27 (run_id 01a17f55…): 30 evaluated → 3 selected, all three OpenAI; inline images 17–56 KB. Parent screenshot reviewed. Concerns: no company diversity; first summary too technical ("hipótesis del tiempo exponencial (ETH)").
+
+- User decision: apply one-news-per-company rule + change joke. Commit `e6f1cc1` (prompt VARIEDAD/CERCANIA + `pick_diverse` enforced in code, 84 tests pass).
+- Draft #2 (2026-10-27): OpenAI, Walmart, 1Password; new joke (1Password password dialogue); images 18–30 KB. Parent screenshot reviewed.
+
 ## Next step
-A1.
+Wait for user approval of draft #2 → A3 `send_draft.py --to <4 recipients>`.
