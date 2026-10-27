@@ -11,6 +11,7 @@ from agente_noticias.concepts import normalize_concept
 from agente_noticias.config import DEFAULT_PROJECT, get_recipients
 from agente_noticias.db import save_briefing
 from agente_noticias.jokes import normalize_joke
+from agente_noticias.logos import company_slug
 from agente_noticias.nodes.card_images import project_relative
 from agente_noticias.schemas import Briefing, EvaluatedArticle
 from agente_noticias.state import NewsState
@@ -35,7 +36,7 @@ def history_payload(selected: list[EvaluatedArticle], briefing: Briefing | None)
                 "category": e.category,
                 "relevance_score": e.relevance_score,
                 "published_date": a.published_date,
-                "company": e.company,
+                "company": company_slug(e.company),
                 "image_path": project_relative(item.card_image_path),
             }
         )

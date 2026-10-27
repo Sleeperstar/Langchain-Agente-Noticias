@@ -3,6 +3,8 @@
 Runs in parallel with `summarizer` (both after `ranker`) and before `email_writer`.
 Image problems never fail the run: `card_images.build_card_image` falls back to
 og:image / a branded placeholder, and an unexpected error leaves the card unset.
+Before composing, each worker makes sure the company logo exists (`logo_finder`
+learns unknown ones), so the badge waits for the logo without serializing the cards.
 """
 from __future__ import annotations
 
@@ -14,6 +16,7 @@ from pathlib import Path
 from agente_noticias._concurrency import submit_with_context
 from agente_noticias.card_images import build_card_image, card_filename
 from agente_noticias.config import CARD_IMAGES_DIR, PROJECT_DIR
+from agente_noticias.logo_finder import ensure_logo
 from agente_noticias.schemas import EvaluatedArticle
 from agente_noticias.state import NewsState
 
@@ -34,6 +37,8 @@ def attach_card_image(item: EvaluatedArticle, out_dir: Path | None = None) -> Ev
     a, e = item.article, item.evaluation
     try:
         out_dir = out_dir or CARD_IMAGES_DIR / date.today().isoformat()
+        if e.company:
+            ensure_logo(e.company)  # never raises; None -> name-only badge
         path = build_card_image(
             out_path=out_dir / card_filename(a.title, a.url),
             title=a.title,

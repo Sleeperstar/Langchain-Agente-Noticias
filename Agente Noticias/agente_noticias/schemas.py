@@ -3,7 +3,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from agente_noticias.logos import canonical_company
 
 CategoriaIA = Literal[
     "Nuevos modelos",
@@ -13,7 +15,8 @@ CategoriaIA = Literal[
     "Industria",
 ]
 
-# Canonical company keys for the card logo badge (must match logos.COMPANY_DISPLAY_NAMES).
+# Key companies (ranker priority + built-in logos); must match logos.COMPANY_DISPLAY_NAMES.
+# `ArticleEvaluation.company` accepts ANY company: these keys are just its canonical form.
 CompanyKey = Literal[
     "openai",
     "anthropic",
@@ -69,13 +72,14 @@ class ArticleEvaluation(BaseModel):
         ...,
         description="Categoria principal de la noticia.",
     )
-    company: CompanyKey | None = Field(
+    company: str | None = Field(
         default=None,
         description=(
-            "Empresa principal de la que trata la noticia, como clave canonica. Usa "
-            "'gemini' si es sobre los modelos/app Gemini y 'google' para el resto de "
-            "Google/DeepMind; 'qwen' para modelos Qwen y 'alibaba' para el resto de "
-            "Alibaba. null si no es sobre una de estas empresas."
+            "Empresa protagonista de la noticia (CUALQUIER empresa), con su nombre oficial "
+            "corto, p. ej. 'OpenAI', 'Walmart', '1Password'. Usa 'Gemini' si es sobre los "
+            "modelos/app Gemini y 'Google' para el resto de Google/DeepMind; 'Qwen' para "
+            "modelos Qwen y 'Alibaba' para el resto de Alibaba. null si no hay una sola "
+            "empresa protagonista (gobiernos, universidades, tendencias generales)."
         ),
     )
     visual_subject: str = Field(
@@ -106,6 +110,12 @@ class ArticleEvaluation(BaseModel):
             "en total, en lenguaje sencillo y sin jerga; cierra con un gancho si es natural."
         ),
     )
+
+    @field_validator("company")
+    @classmethod
+    def _canonical_company(cls, value: str | None) -> str | None:
+        # Key companies -> their key ("Google DeepMind" -> "google"); others keep the name.
+        return canonical_company(value)
 
 
 class EvaluatedArticle(BaseModel):

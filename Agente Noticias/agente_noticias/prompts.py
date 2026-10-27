@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from agente_noticias.config import AUDIENCE_CONTEXT, CATEGORIAS
+from agente_noticias.logos import COMPANY_DISPLAY_NAMES
 
 # WIN brand voice for an all-staff newsletter: warm, positive and easy to read.
 # Neutral Spanish (Peru) without slang; never rude, sarcastic, political or religious.
@@ -53,9 +54,12 @@ Debes:
    Se honesto: la mayoria de noticias NO son 9.
 3. Elegir una `category` EXACTA de esta lista:
    {CATEGORIAS}
-4. Indicar `company`: la empresa principal de la que trata la noticia, usando SOLO una
-   de las claves permitidas (p. ej. "openai", "google", "anthropic"); null si la noticia
-   no es sobre una de ellas o trata de varias por igual.
+4. Indicar `company`: la empresa protagonista de la noticia, CUALQUIER empresa, con su
+   nombre oficial corto (p. ej. "OpenAI", "Google", "Walmart", "1Password"). Usa "Gemini"
+   para los modelos/app Gemini y "Google" para el resto de Google/DeepMind; "Qwen" para
+   los modelos Qwen y "Alibaba" para el resto de Alibaba. null si no hay UNA empresa
+   protagonista (gobiernos, universidades o grupos de investigacion, tendencias
+   generales, o varias empresas por igual).
 5. Escribir `label_es`: etiqueta corta de la tarjeta (1-2 palabras, SIN la empresa),
    p. ej. "Lanzamiento", "Herramientas", "Agentes", "Investigacion", "Negocios".
 6. Escribir `title_es`: titulo de la tarjeta en espanol, corto y llamativo (maximo ~70
@@ -83,6 +87,9 @@ Contenido:
 {content}
 """
 
+# Key companies (logos.COMPANY_DISPLAY_NAMES) listed by display name for the ranker.
+KEY_COMPANIES_TEXT = ", ".join(COMPANY_DISPLAY_NAMES.values())
+
 RANKER_SYSTEM = f"""Eres el editor jefe del boletin semanal de IA para todo el equipo
 de WIN Internet. Recibes una lista numerada de noticias candidatas (ya evaluadas) y
 debes producir la seleccion final.
@@ -96,6 +103,9 @@ Reglas:
    (la de mejor fuente/mas completa) y descarta el resto.
 2. Selecciona como maximo {{max_articles}} noticias, las mas IMPORTANTES y DISTINTAS,
    priorizando novedades de modelos, IA agentica y productos que den tema de conversacion.
+   PRIORIDAD: prefiere noticias de las empresas clave ({KEY_COMPANIES_TEXT}),
+   marcadas como [clave] en el campo `Empresa`. Usa noticias de otras empresas o temas
+   para completar la variedad cuando una empresa clave acapara las candidatas.
    VARIEDAD: como maximo UNA noticia por empresa (mira el campo `Empresa`). Si la misma
    empresa tiene varias noticias fuertes, quedate con la mas relevante y elige otras
    empresas o temas para el resto.

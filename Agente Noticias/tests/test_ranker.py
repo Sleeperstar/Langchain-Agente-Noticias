@@ -71,3 +71,43 @@ def test_ranker_node_enforces_variety_when_model_ignores_it(monkeypatch):
     companies = [it.evaluation.company for it in out]
     assert companies[:2] == ["openai", "anthropic"]
     assert companies.count("openai") == 2  # only 2 companies exist, so one repeat fills the slot
+
+
+def test_pick_diverse_prefers_key_companies_when_topping_up():
+    lead = _item(1, "openai")
+    pool = [_item(2, "openai"), _item(3, "Walmart"), _item(4, None), _item(5, "google"), _item(6, "1Password")]
+    picked = ranker.pick_diverse([lead], pool, 4)
+    assert _titles(picked) == ["News 1", "News 5", "News 3", "News 4"]
+
+
+def test_pick_diverse_keeps_model_order_for_ordered_items():
+    ordered = [_item(1, "Walmart"), _item(2, "anthropic")]
+    assert _titles(ranker.pick_diverse(ordered, [], 2)) == ["News 1", "News 2"]
+
+
+def test_pick_diverse_compares_companies_by_slug():
+    items = [_item(1, "Google DeepMind"), _item(2, "google"), _item(3, "Walmart"), _item(4, "Walmart Inc.")]
+    picked = ranker.pick_diverse(items, [], 2)
+    assert _titles(picked) == ["News 1", "News 3"]
+
+
+def test_candidates_block_marks_key_companies():
+    block = ranker._format_candidates_block([_item(1, "openai"), _item(2, "Walmart"), _item(3, None)])
+    assert "Empresa: OpenAI [clave]" in block
+    assert "Empresa: Walmart\n" in block
+    assert "Empresa: -\n" in block
+
+
+def test_ranker_fallback_prioritizes_key_companies(monkeypatch):
+    class Boom:
+        def with_structured_output(self, _schema):
+            return self
+
+        def invoke(self, _messages):
+            raise RuntimeError("timeout")
+
+    scored = [_item(1, "Walmart", 9), _item(2, "1Password", 8), _item(3, "nvidia", 7), _item(4, "meta", 6)]
+    monkeypatch.setattr(ranker, "get_chat_model", lambda: Boom())
+    monkeypatch.setattr(ranker, "MAX_ARTICLES", 3)
+    out = ranker.ranker_node({"scored_articles": scored})["selected_articles"]
+    assert _titles(out) == ["News 3", "News 4", "News 1"]

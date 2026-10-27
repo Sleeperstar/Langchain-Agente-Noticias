@@ -13,9 +13,17 @@ from agente_noticias.config import (
     MIN_RELEVANCE_SCORE,
 )
 from agente_noticias.llm import get_chat_model
+from agente_noticias.logos import company_slug, display_name, is_key_company
 from agente_noticias.prompts import RANKER_SYSTEM, RANKER_USER_TEMPLATE
 from agente_noticias.schemas import EvaluatedArticle, Ranking
 from agente_noticias.state import NewsState
+
+
+def _company_label(company: str | None) -> str:
+    if not company:
+        return "-"
+    name = display_name(company)
+    return f"{name} [clave]" if is_key_company(company) else name
 
 
 def _format_candidates_block(candidates: list[EvaluatedArticle]) -> str:
@@ -25,7 +33,7 @@ def _format_candidates_block(candidates: list[EvaluatedArticle]) -> str:
         lines.append(
             f"[{i}] ({e.relevance_score}/10 indep.) {a.title}\n"
             f"    Categoria: {e.category}\n"
-            f"    Empresa: {e.company or '-'}\n"
+            f"    Empresa: {_company_label(e.company)}\n"
             f"    Fuente: {a.source} | {a.url}\n"
             f"    Resumen: {e.summary_es}\n"
         )
@@ -39,22 +47,25 @@ def pick_diverse(
 ) -> list[EvaluatedArticle]:
     """At most one article per company, in `ordered` priority, topped up from `pool`.
 
+    Companies are compared by `logos.company_slug` ("Google DeepMind" == "google").
+    When topping up from `pool`, key-company articles go first (stable order otherwise).
     Articles without a company never collide. Only if there are not enough distinct
     companies do we fall back to repeating one, so the newsletter still has `limit` items.
     """
+    pool = sorted(pool, key=lambda it: not is_key_company(it.evaluation.company))
     picked: list[EvaluatedArticle] = []
     companies: set[str] = set()
     seen: set[int] = set()
     for item in [*ordered, *pool]:
         if len(picked) >= limit:
             break
-        company = item.evaluation.company
-        if id(item) in seen or (company and company in companies):
+        slug = company_slug(item.evaluation.company)
+        if id(item) in seen or (slug and slug in companies):
             continue
         seen.add(id(item))
         picked.append(item)
-        if company:
-            companies.add(company)
+        if slug:
+            companies.add(slug)
     for item in [*ordered, *pool]:
         if len(picked) >= limit:
             break
@@ -99,7 +110,8 @@ def ranker_node(state: NewsState) -> dict:
     except Exception as exc:  # noqa: BLE001
         # Fallback: si el ranker falla, devolvemos el top por score independiente.
         print(f"[ranker] fallo, uso fallback por score independiente: {exc}")
-        return {"selected_articles": pick_diverse(candidates, [], MAX_ARTICLES)}
+        # Candidates go in as the pool so key companies keep their priority.
+        return {"selected_articles": pick_diverse([], candidates, MAX_ARTICLES)}
 
     selected: list[EvaluatedArticle] = []
     used_indices: set[int] = set()

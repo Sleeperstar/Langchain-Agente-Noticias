@@ -6,11 +6,15 @@ import io
 from typing import get_args
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from agente_noticias import card_images
 from agente_noticias.card_images import (
     BADGE_HEIGHT,
+    BADGE_MAX_WIDTH,
+    BADGE_PAD_LEFT,
+    BADGE_PAD_RIGHT,
+    WORDMARK_HEIGHT,
     CARD_SIZE,
     build_card_image,
     card_filename,
@@ -81,6 +85,76 @@ def test_compose_card_missing_logo_still_draws_name_badge(tmp_path):
     card = compose_card(_solid((0, 0, 0)), "openai", logos_dir=tmp_path)
 
     assert _white_ratio(card, BADGE_BOX) > 0.5
+
+
+def _badge_width(card: Image.Image) -> int:
+    """Right edge of the white badge, read on a row below the badge content."""
+    y = H - 6
+    white = [x for x in range(W) if min(card.getpixel((x, y))[:3]) > 240 and card.getpixel((x, y))[3] == 255]
+    return max(white) + 1 if white else 0
+
+
+def _logo_file(path, size, color=(0, 83, 226, 255)):
+    Image.new("RGBA", size, color).save(path)
+    return path
+
+
+def test_compose_card_wordmark_logo_is_drawn_without_name(tmp_path):
+    _logo_file(tmp_path / "walmart.png", (768, 128))  # aspect 6 -> wordmark
+
+    card = compose_card(_solid((0, 0, 0)), "Walmart", logos_dir=tmp_path)
+
+    logo_w = round(768 * WORDMARK_HEIGHT / 128)
+    assert abs(_badge_width(card) - (BADGE_PAD_LEFT + logo_w + BADGE_PAD_RIGHT)) <= 2
+    # No name text after the logo: the badge has no room for it.
+    draw = ImageDraw.Draw(card)
+    name_w = draw.textlength("Walmart", font=card_images.bold_font(card_images.BADGE_FONT_SIZE))
+    assert _badge_width(card) < BADGE_PAD_LEFT + logo_w + card_images.BADGE_GAP + name_w
+
+
+def test_compose_card_symbol_logo_is_drawn_with_name(tmp_path):
+    _logo_file(tmp_path / "acme.png", (128, 128))
+    with_logo = _badge_width(compose_card(_solid((0, 0, 0)), "Acme", logos_dir=tmp_path))
+    name_only = _badge_width(compose_card(_solid((0, 0, 0)), "Acme", logos_dir=tmp_path / "none"))
+    assert with_logo > name_only > 0
+
+
+def test_compose_card_unknown_company_without_logo_draws_name_only_badge(tmp_path):
+    card = compose_card(_solid((0, 0, 0)), "1Password", logos_dir=tmp_path)
+    assert _white_ratio(card, BADGE_BOX) > 0.5
+
+
+def test_compose_card_badge_stays_within_max_width(tmp_path):
+    long_name = "Extremely Long Company Name International Holdings Group"
+    _logo_file(tmp_path / "wide.png", (4000, 100))
+    for company, logos_dir in ((long_name, tmp_path), ("Wide", tmp_path)):
+        card = compose_card(_solid((0, 0, 0)), company, logos_dir=logos_dir)
+        assert 0 < _badge_width(card) <= BADGE_MAX_WIDTH + 1
+
+
+def test_attach_card_image_ensures_logo_before_composing(tmp_path, monkeypatch):
+    order = []
+    monkeypatch.setattr(card_images_node_mod, "ensure_logo", lambda company: order.append(("logo", company)))
+    monkeypatch.setattr(
+        card_images_node_mod,
+        "build_card_image",
+        lambda **kw: order.append(("card", kw["company"])) or kw["out_path"],
+    )
+    item = _evaluated()
+    item = item.model_copy(update={"evaluation": item.evaluation.model_copy(update={"company": "Walmart"})})
+
+    out = attach_card_image(item, out_dir=tmp_path)
+
+    assert order == [("logo", "Walmart"), ("card", "Walmart")]
+    assert out.card_image_path
+
+
+def test_attach_card_image_skips_logo_lookup_without_company(tmp_path, monkeypatch):
+    monkeypatch.setattr(card_images_node_mod, "ensure_logo", lambda c: pytest.fail("lookup"))
+    monkeypatch.setattr(card_images_node_mod, "build_card_image", lambda **kw: kw["out_path"])
+    item = _evaluated()
+    item = item.model_copy(update={"evaluation": item.evaluation.model_copy(update={"company": None})})
+    assert attach_card_image(item, out_dir=tmp_path).card_image_path
 
 
 def test_every_company_key_has_display_name_and_logo():
