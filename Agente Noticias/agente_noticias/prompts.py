@@ -96,6 +96,12 @@ Reglas:
    (la de mejor fuente/mas completa) y descarta el resto.
 2. Selecciona como maximo {{max_articles}} noticias, las mas IMPORTANTES y DISTINTAS,
    priorizando novedades de modelos, IA agentica y productos que den tema de conversacion.
+   VARIEDAD: como maximo UNA noticia por empresa (mira el campo `Empresa`). Si la misma
+   empresa tiene varias noticias fuertes, quedate con la mas relevante y elige otras
+   empresas o temas para el resto.
+   CERCANIA: prefiere noticias que cualquier persona entienda y pueda comentar. Descarta
+   las muy tecnicas o academicas (teoria matematica, papers, benchmarks especializados)
+   salvo que su impacto en la vida diaria sea evidente.
 3. Asigna a cada una un `final_score` de 1 a 10 que refleje su importancia RELATIVA
    dentro del set. Los scores DEBEN estar diferenciados: evita empates, usa el rango.
    Solo la noticia mas trascendente de la semana puede llegar a 10; las demas deben

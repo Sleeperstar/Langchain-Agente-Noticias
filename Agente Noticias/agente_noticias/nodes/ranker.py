@@ -25,10 +25,44 @@ def _format_candidates_block(candidates: list[EvaluatedArticle]) -> str:
         lines.append(
             f"[{i}] ({e.relevance_score}/10 indep.) {a.title}\n"
             f"    Categoria: {e.category}\n"
+            f"    Empresa: {e.company or '-'}\n"
             f"    Fuente: {a.source} | {a.url}\n"
             f"    Resumen: {e.summary_es}\n"
         )
     return "\n".join(lines)
+
+
+def pick_diverse(
+    ordered: list[EvaluatedArticle],
+    pool: list[EvaluatedArticle],
+    limit: int,
+) -> list[EvaluatedArticle]:
+    """At most one article per company, in `ordered` priority, topped up from `pool`.
+
+    Articles without a company never collide. Only if there are not enough distinct
+    companies do we fall back to repeating one, so the newsletter still has `limit` items.
+    """
+    picked: list[EvaluatedArticle] = []
+    companies: set[str] = set()
+    seen: set[int] = set()
+    for item in [*ordered, *pool]:
+        if len(picked) >= limit:
+            break
+        company = item.evaluation.company
+        if id(item) in seen or (company and company in companies):
+            continue
+        seen.add(id(item))
+        picked.append(item)
+        if company:
+            companies.add(company)
+    for item in [*ordered, *pool]:
+        if len(picked) >= limit:
+            break
+        if id(item) not in seen:
+            seen.add(id(item))
+            picked.append(item)
+            print(f"[ranker] sin empresas suficientes: repito {item.evaluation.company}")
+    return picked
 
 
 def ranker_node(state: NewsState) -> dict:
@@ -65,7 +99,7 @@ def ranker_node(state: NewsState) -> dict:
     except Exception as exc:  # noqa: BLE001
         # Fallback: si el ranker falla, devolvemos el top por score independiente.
         print(f"[ranker] fallo, uso fallback por score independiente: {exc}")
-        return {"selected_articles": candidates[:MAX_ARTICLES]}
+        return {"selected_articles": pick_diverse(candidates, [], MAX_ARTICLES)}
 
     selected: list[EvaluatedArticle] = []
     used_indices: set[int] = set()
@@ -78,11 +112,9 @@ def ranker_node(state: NewsState) -> dict:
         # Sobrescribimos el score con el comparativo (diferenciado) del ranker.
         item.evaluation.relevance_score = sel.final_score
         selected.append(item)
-        if len(selected) >= MAX_ARTICLES:
-            break
 
-    if not selected:
-        selected = candidates[:MAX_ARTICLES]
+    # Enforce variety even if the model ignored the one-per-company rule.
+    selected = pick_diverse(selected, candidates, MAX_ARTICLES)
 
     print(
         f"[ranker] {len(candidates)} candidatas -> {len(selected)} seleccionadas "
