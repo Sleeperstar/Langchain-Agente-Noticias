@@ -32,8 +32,8 @@ def project_relative(path: str | None) -> str | None:
 def attach_card_image(item: EvaluatedArticle, out_dir: Path | None = None) -> EvaluatedArticle:
     """Returns a copy of `item` with `card_image_path` set (unchanged copy on failure)."""
     a, e = item.article, item.evaluation
-    out_dir = out_dir or CARD_IMAGES_DIR / date.today().isoformat()
     try:
+        out_dir = out_dir or CARD_IMAGES_DIR / date.today().isoformat()
         path = build_card_image(
             out_path=out_dir / card_filename(a.title, a.url),
             title=a.title,
@@ -62,7 +62,15 @@ def card_images_node(state: NewsState) -> dict:
             for i, item in enumerate(selected)
         }
         for fut in as_completed(futures):
-            results[futures[fut]] = fut.result()
+            i = futures[fut]
+            try:
+                results[i] = fut.result()
+            except Exception as exc:  # noqa: BLE001 - one bad card never aborts the run
+                print(
+                    f"[card_images] WARNING: card task failed for "
+                    f"{selected[i].article.url}: {exc}",
+                    file=sys.stderr,
+                )
 
     done = sum(1 for it in results if it.card_image_path)
     print(f"[card_images] {done}/{len(results)} tarjetas generadas en {out_dir}")

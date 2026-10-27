@@ -12,9 +12,9 @@ los directivos de Win Internet. En cada corrida:
 3. **evaluator**: el LLM puntua cada noticia (0-10) con un rubric estricto, le asigna
    categoria, la resume y la explica "en simple". Usa salida estructurada (Pydantic).
 4. **ranker**: ve todas las candidatas juntas, colapsa duplicados del mismo evento y
-   asigna scores diferenciados (solo lo mas grande de la semana llega a 10). Elige el top 5.
-5. **summarizer**: arma headline + TL;DR (lectura de 30 segundos) + **concepto del dia**
-   + **chiste** de cierre, con el tono de marca Win.
+   asigna scores diferenciados (solo lo mas grande de la semana llega a 10). Elige el top 3.
+5. **summarizer**: arma el titular + **concepto del dia** + **chiste** de cierre, con el
+   tono de marca Win (para todo el equipo, sin jerga).
 6. **email_writer**: renderiza el correo HTML con el look and feel de Win y guarda
    `output/preview.html`.
 7. **outlook_sender**: envia el correo via **Outlook Desktop** (`pywin32`/COM) a los
@@ -24,12 +24,24 @@ los directivos de Win Internet. En cada corrida:
 Flujo automatico (sin aprobacion humana). Todo queda trazado en **LangSmith** bajo el
 proyecto `agente-noticias-win`.
 
+**LLM via OpenRouter**: todas las llamadas de texto (evaluator, ranker, summarizer,
+chiste, concepto) y las imagenes de las tarjetas usan **OpenRouter** con una sola
+`OPENROUTER_API_KEY` (fabrica unica en `agente_noticias/llm.py`). Modelo de texto por
+defecto: `openai/gpt-5-mini` (`NEWS_MODEL`, id de OpenRouter).
+
+**Nunca se envia un boletin vacio**: si no queda ninguna noticia seleccionada (por
+ejemplo, fallaron todas las evaluaciones), el grafo NO pasa por `outlook_sender` ni
+`persist_history`, deja `send_result="no se envio: 0 noticias seleccionadas..."` y
+`scripts/run.py` termina con codigo 1 (tambien en `--dry-run`). El preview se genera
+igual para depurar.
+
 ## Estructura
 
 ```
 Agente Noticias/
 ├── agente_noticias/
 │   ├── config.py                # audiencia, queries, dominios curados, parametros
+│   ├── llm.py                   # fabrica unica del LLM de texto (OpenRouter)
 │   ├── state.py                 # NewsState (TypedDict)
 │   ├── schemas.py               # Article, ArticleEvaluation, Ranking, Briefing
 │   ├── prompts.py               # prompts + tono de marca Win
@@ -62,7 +74,7 @@ Agente Noticias/
 - Windows + Python 3.11+
 - [uv](https://docs.astral.sh/uv/) como gestor de paquetes
 - Outlook Desktop abierto y autenticado (para el envio real)
-- API keys: OpenAI, Tavily y LangSmith
+- API keys: OpenRouter (texto + imagenes), Tavily y LangSmith
 
 ## Instalacion (uv)
 
@@ -77,13 +89,13 @@ uv sync --extra studio   # incluye LangGraph Studio (langgraph dev)
 Copia `.env.example` a `.env` y completa:
 
 ```env
-OPENAI_API_KEY=...
+OPENROUTER_API_KEY=...   # texto + imagenes (ya no se usa OPENAI_API_KEY)
 TAVILY_API_KEY=...
 LANGSMITH_API_KEY=...
 LANGSMITH_TRACING=true
 LANGSMITH_PROJECT=agente-noticias-win
 NEWS_RECIPIENT=directivo1@win.pe,directivo2@win.pe   # varios separados por coma
-NEWS_MODEL=gpt-5-mini
+NEWS_MODEL=openai/gpt-5-mini                        # id de OpenRouter (default)
 DEDUP_WEEKS=6
 # NEWS_DB_PATH=data/agente_noticias.db   # opcional (default)
 ```
@@ -99,7 +111,7 @@ Coloca el logo blanco + claim (PNG transparente) en
 uv run python scripts/run.py              # busca, arma briefing y envia por Outlook
 uv run python scripts/run.py --dry-run    # solo genera output/preview.html (no envia ni guarda)
 uv run python scripts/run.py --headless   # no abre el navegador
-uv run python scripts/run.py --model gpt-5-mini
+uv run python scripts/run.py --model openai/gpt-5-mini   # id de OpenRouter
 ```
 
 ## Interfaz web (recomendada para uso diario)
@@ -113,7 +125,7 @@ App local con el look & feel de Win para operar el agente sin tocar codigo:
 
 1. Boton "Enviar Correo Noticias IA Semanal" -> genera el borrador mostrando el
    flujo de los agentes EN VIVO (cada nodo se ilumina conforme corre).
-2. Revisa las 5 noticias (titulo, resumen, "en simple", categoria, relevancia),
+2. Revisa las 3 noticias (titulo, resumen, categoria),
    el concepto del dia y el chiste.
 3. Edita lo que no te guste:
    - "Regenerar con otra noticia": cambia esa noticia por el siguiente mejor
@@ -149,7 +161,7 @@ en `{}` y presiona **Submit**.
 > `.langgraph_api/` (y se genera `output/preview.html`), entra en un bucle de
 > recargas que **re-ejecuta el grafo y envia el correo dos veces** con un solo
 > Submit. `--allow-blocking` evita que el servidor de dev marque como problema las
-> llamadas bloqueantes de los nodos (Tavily, OpenAI, Outlook, SQLite).
+> llamadas bloqueantes de los nodos (Tavily, OpenRouter, Outlook, SQLite).
 
 ## Historial anti-repeticion (SQLite)
 
@@ -172,9 +184,14 @@ Cada corrida se agrupa en el proyecto **`agente-noticias-win`** con tags, metada
 
 - **`pywintypes.com_error: No se ha llamado a CoInitialize`**: ya resuelto; el sender
   llama a `CoInitialize()` por hilo. Asegura que Outlook este abierto.
-- **El logo no se ve en el correo**: confirma que `assets/win_logo.png` existe; en el
-  preview del navegador se usa data URI y en el correo `cid:winlogo`.
+- **El logo o las tarjetas no se ven en el correo**: confirma que `assets/win_logo.png` y
+  los PNG de `data/images/` existen; en el preview del navegador se usan data URIs y en el
+  correo `cid:winlogo` / `cid:card1..N` (adjuntos inline). Para revisar el diseno sin
+  llamar APIs: `uv run python scripts/render_sample.py` -> `output/sample_preview.html`.
 - **No filtra repetidos**: busca `[db] WARNING` en la consola y revisa que
   `NEWS_DB_PATH` (o `data/`) sea escribible.
 - **Trace no aparece en LangSmith**: confirma `LANGSMITH_TRACING=true`.
+- **`[evaluator] ERROR: fallaron las N evaluaciones`** (y `[run] ERROR: boletin vacio`):
+  revisa el primer error que imprime (p. ej. creditos/cuota de OpenRouter o
+  `OPENROUTER_API_KEY` invalida). No se envia nada hasta que haya noticias.
 ```

@@ -79,6 +79,18 @@ def _since_iso(weeks: int) -> str:
     return since.isoformat(timespec="seconds")
 
 
+def _as_int(value: object, default: int = 0) -> int:
+    """Tolerant int coercion for scores coming from LLM output (never raises)."""
+    try:
+        return int(value)  # type: ignore[call-overload]
+    except (TypeError, ValueError):
+        pass
+    try:
+        return int(float(value))  # type: ignore[arg-type]
+    except (TypeError, ValueError, OverflowError):
+        return default
+
+
 def _ensure_schema(conn: sqlite3.Connection, key: str) -> None:
     if key in _READY_PATHS:
         return
@@ -168,25 +180,25 @@ def save_briefing(
     week_iso = f"{now.isocalendar().year}-W{now.isocalendar().week:02d}"
     briefing_id = str(uuid.uuid4())
 
-    article_rows = [
-        (
-            briefing_id,
-            sent_at,
-            a.get("url", ""),
-            a.get("normalized_title", ""),
-            a.get("title", ""),
-            a.get("source", ""),
-            a.get("category", ""),
-            int(a.get("relevance_score", 0) or 0),
-            a.get("published_date", ""),
-            week_iso,
-            a.get("company") or None,
-            a.get("image_path") or None,
-        )
-        for a in articles
-    ]
-
     try:
+        # Built inside the try: malformed article dicts degrade like a DB error.
+        article_rows = [
+            (
+                briefing_id,
+                sent_at,
+                a.get("url", ""),
+                a.get("normalized_title", ""),
+                a.get("title", ""),
+                a.get("source", ""),
+                a.get("category", ""),
+                _as_int(a.get("relevance_score")),
+                a.get("published_date", ""),
+                week_iso,
+                a.get("company") or None,
+                a.get("image_path") or None,
+            )
+            for a in articles
+        ]
         # `with conn` wraps both inserts in one transaction (commit or rollback).
         with _WRITE_LOCK, connect() as conn, conn:
             conn.execute(

@@ -27,10 +27,14 @@ class NewsState(TypedDict, total=False):
     # Email writer
     subject: str
     html_body: str
+    # (file path, Content-ID) of the images `html_body` references via cid:
+    inline_images: list[tuple[str, str]]
     preview_path: str
 
     # Sender
     send_result: str
+    # True only when Outlook accepted the message; persist_history relies on it.
+    send_ok: bool
     run_id: str
 
     # Persist history
