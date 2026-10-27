@@ -12,21 +12,17 @@ from agente_noticias.config import DEFAULT_PROJECT, get_recipients
 from agente_noticias.db import save_briefing
 from agente_noticias.jokes import normalize_joke
 from agente_noticias.nodes.card_images import project_relative
+from agente_noticias.schemas import Briefing, EvaluatedArticle
 from agente_noticias.state import NewsState
 from agente_noticias.text_utils import normalize_title
 
 
-def persist_history_node(state: NewsState) -> dict:
-    selected = state.get("selected_articles", []) or []
+def history_payload(selected: list[EvaluatedArticle], briefing: Briefing | None) -> dict:
+    """`save_briefing` keyword arguments derived from the newsletter content.
 
-    # Solo persistimos si hubo envio exitoso (flag explicito de outlook_sender).
-    if state.get("send_ok") is not True:
-        print("[persist_history] no se envio el correo, no se guarda historial")
-        return {}
-
-    if not selected:
-        return {}
-
+    Returns `articles` plus the joke/concept fields. Shared with the send-ready
+    draft (agente_noticias.draft) so both paths persist identical history rows.
+    """
     articles = []
     for item in selected:
         a, e = item.article, item.evaluation
@@ -44,24 +40,40 @@ def persist_history_node(state: NewsState) -> dict:
             }
         )
 
-    briefing = state.get("briefing")
     joke = getattr(briefing, "chiste", "") if briefing is not None else ""
     concepto_titulo = getattr(briefing, "concepto_titulo", "") if briefing is not None else ""
     concepto_explicacion = (
         getattr(briefing, "concepto_explicacion", "") if briefing is not None else ""
     )
+    return {
+        "articles": articles,
+        "joke": joke,
+        "joke_normalized": normalize_joke(joke),
+        "concepto_titulo": concepto_titulo,
+        "concepto_explicacion": concepto_explicacion,
+        "concepto_normalized": normalize_concept(concepto_titulo),
+    }
+
+
+def persist_history_node(state: NewsState) -> dict:
+    selected = state.get("selected_articles", []) or []
+
+    # Solo persistimos si hubo envio exitoso (flag explicito de outlook_sender).
+    if state.get("send_ok") is not True:
+        print("[persist_history] no se envio el correo, no se guarda historial")
+        return {}
+
+    if not selected:
+        return {}
+
+    payload = history_payload(selected, state.get("briefing"))
 
     briefing_id = save_briefing(
         subject=state.get("subject", ""),
         recipients=", ".join(get_recipients()),
         run_id=state.get("run_id", ""),
         langsmith_project=os.getenv("LANGSMITH_PROJECT", DEFAULT_PROJECT),
-        articles=articles,
-        joke=joke,
-        joke_normalized=normalize_joke(joke),
-        concepto_titulo=concepto_titulo,
-        concepto_explicacion=concepto_explicacion,
-        concepto_normalized=normalize_concept(concepto_titulo),
+        **payload,
     )
 
     if briefing_id:

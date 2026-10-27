@@ -3,7 +3,7 @@
 Uso basico:
 
     uv run python scripts/run.py                  # busca, arma briefing y envia por Outlook
-    uv run python scripts/run.py --dry-run        # solo genera el preview, NO envia ni guarda
+    uv run python scripts/run.py --dry-run        # preview + borrador (send_draft.py), NO envia
     uv run python scripts/run.py --headless       # no abre el navegador con el preview
     uv run python scripts/run.py --model openai/gpt-5-mini   # override (id de OpenRouter)
     uv run python scripts/run.py --thread mi-id   # custom thread_id (LangGraph)
@@ -26,7 +26,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Agente Noticias IA - Win Internet")
     parser.add_argument("--dry-run", action="store_true",
-                        help="Genera el preview HTML pero NO envia ni guarda historial.")
+                        help="Genera el preview HTML y un borrador listo para enviar con "
+                             "scripts/send_draft.py, pero NO envia ni guarda historial.")
     parser.add_argument("--headless", action="store_true",
                         help="No abre el preview en el navegador.")
     parser.add_argument("--model", type=str, default=None,
@@ -62,11 +63,24 @@ def main() -> int:
     graph = build_graph(send=not args.dry_run)
     result = graph.invoke({}, config)
 
+    n_articles = len(result.get("selected_articles", []) or [])
+    draft_path = None
+    draft_error = None
+    if args.dry_run and n_articles >= MIN_ARTICLES_TO_SEND:
+        from agente_noticias.draft import save_draft
+
+        try:
+            draft_path = save_draft(result)
+        except Exception as exc:  # noqa: BLE001 - disk/copy errors must not hide the preview
+            draft_error = str(exc)
+
     briefing = result.get("briefing")
     print("\n=== Briefing generado ===")
     if briefing is not None:
         print(f"Asunto:           {result.get('subject')}")
         print(f"Archivo preview:  {result.get('preview_path')}")
+        if draft_path is not None:
+            print(f"Borrador envio:   {draft_path}")
         print(f"Articulos:        {len(result.get('selected_articles', []) or [])}")
         print(f"Descartadas hist: {result.get('dropped_by_history', 0)}")
         print("Noticias:")
@@ -80,16 +94,21 @@ def main() -> int:
 
     if args.dry_run:
         print("\n[run] --dry-run activado: no se envio ni se guardo historial.")
+        if draft_path is not None:
+            print("[run] revisa el preview y envia ESE borrador con:")
+            print("      uv run python scripts/send_draft.py --to persona1@win.pe,persona2@win.pe")
     else:
         print(f"\n[run] resultado envio:  {result.get('send_result', '(sin send_result)')}")
         print(f"[run] briefing_id:      {result.get('briefing_id', '(no guardado)')}")
 
     print(f"[run] run_id: {result.get('run_id')}")
-    n_articles = len(result.get("selected_articles", []) or [])
     if n_articles < MIN_ARTICLES_TO_SEND:
         # Both modes exit 1 so schedulers/operators notice an empty run.
         reason = result.get("send_result") or f"no se envio: {n_articles} noticias seleccionadas"
         print(f"[run] ERROR: boletin vacio, NO se envia ({reason}).", file=sys.stderr)
+        return 1
+    if draft_error is not None:
+        print(f"[run] ERROR: no se pudo guardar el borrador: {draft_error}", file=sys.stderr)
         return 1
     if not args.dry_run and not result.get("send_ok"):
         print("[run] ERROR: el correo NO se envio (ver [outlook_sender]).", file=sys.stderr)
