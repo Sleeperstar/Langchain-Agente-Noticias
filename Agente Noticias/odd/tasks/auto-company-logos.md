@@ -48,5 +48,8 @@ Out of scope: webapp changes; manual curation UI.
 - L1 done: commit `2a8f2d9` (134 tests pass, parent re-run). Live smoke: Walmart Q483551 (P8972 spark) and 1Password Q2150861 (P8972) saved to data/logos; cards visually checked. send_draft ordering fix `25cf217`.
 - L2 draft #3 (2026-10-27): OpenAI (GPT-6.1 Terra), Walmart (learned logo badge ✔), UK biosecurity lab (company null → no badge, government story). Parent screenshot reviewed.
 
+- User decision (2026-10-27): only news WITH a logo (a badgeless card breaks the pattern). Commit `bbef1f6`: candidates need a protagonist company; `pick_diverse(accept=_has_logo)` runs ensure_logo per pick and falls back to the next candidate. 136 tests pass.
+- L2 draft #4: OpenAI (GPT-6.1 Terra), Walmart, 1Password — all 3 with logo badges. Parent screenshot reviewed.
+
 ## Next step
-User approval of draft #3 → `send_draft.py --to <4 recipients>` → push + PR #5.
+User approval of draft #4 → `send_draft.py --to <4 recipients>` → push + PR #5.
