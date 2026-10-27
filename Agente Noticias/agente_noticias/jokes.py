@@ -42,7 +42,7 @@ def recent_jokes_block(jokes: list[str]) -> str:
 
 
 def get_recent_jokes(weeks: int | None = None) -> list[str]:
-    """Lee de Supabase los chistes usados recientemente."""
+    """Lee del historial SQLite los chistes usados recientemente."""
     return fetch_recent_jokes(weeks if weeks is not None else DEDUP_WEEKS)
 
 

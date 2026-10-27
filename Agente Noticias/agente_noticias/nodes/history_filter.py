@@ -1,8 +1,8 @@
 """History filter node: descarta noticias ya enviadas en semanas anteriores.
 
-Consulta el historial en Supabase (ultimas DEDUP_WEEKS semanas) y quita de
+Consulta el historial SQLite local (ultimas DEDUP_WEEKS semanas) y quita de
 `raw_articles` las noticias cuya URL o titulo sea muy similar a algo ya enviado.
-Si no hay credenciales de Supabase, no filtra (degradacion segura).
+Si el historial esta vacio o no se puede leer, no filtra (degradacion segura).
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def history_filter_node(state: NewsState) -> dict:
 
     sent = fetch_recent_sent(DEDUP_WEEKS)
     if not sent:
-        print("[history_filter] sin historial (o Supabase no configurado): no se filtra")
+        print("[history_filter] sin historial reciente (o error leyendo la BD): no se filtra")
         return {"raw_articles": articles, "dropped_by_history": 0}
 
     sent_urls = {row.get("url", "") for row in sent if row.get("url")}

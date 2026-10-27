@@ -19,6 +19,10 @@ LOCAL_ENV = PROJECT_DIR / ".env"
 OUTPUT_DIR = PROJECT_DIR / "output"
 PREVIEW_PATH = OUTPUT_DIR / "preview.html"
 
+# Local SQLite history (anti-repetition). Card images live as files next to it.
+DATA_DIR = PROJECT_DIR / "data"
+DEFAULT_DB_PATH = DATA_DIR / "agente_noticias.db"
+
 # Logo de Win para el header del correo (blanco + claim, PNG transparente).
 ASSETS_DIR = PACKAGE_DIR / "assets"
 LOGO_PATH = ASSETS_DIR / "win_logo.png"
@@ -158,10 +162,10 @@ def get_model() -> str:
     return os.getenv("NEWS_MODEL", DEFAULT_MODEL)
 
 
-def get_supabase_config() -> tuple[str, str]:
-    """Devuelve (url, service_role_key) o ('', '') si no estan configuradas."""
-    url = os.getenv("SUPABASE_URL", "").strip()
-    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
-    if not url or not key or key.startswith("PENDIENTE"):
-        return "", ""
-    return url, key
+def get_db_path() -> Path:
+    """Path of the SQLite history DB (NEWS_DB_PATH, relative to the project if not absolute)."""
+    raw = os.getenv("NEWS_DB_PATH", "").strip()
+    if not raw:
+        return DEFAULT_DB_PATH
+    path = Path(raw).expanduser()
+    return path if path.is_absolute() else PROJECT_DIR / path

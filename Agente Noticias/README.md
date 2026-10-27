@@ -8,7 +8,7 @@ los directivos de Win Internet. En cada corrida:
    productos y novedades de las grandes), con dominios curados. Deduplica por URL y por
    similitud de titulo.
 2. **history_filter**: descarta noticias que ya se enviaron en las ultimas semanas
-   (historial en Supabase), para no repetir contenido entre briefings.
+   (historial en SQLite local), para no repetir contenido entre briefings.
 3. **evaluator**: el LLM puntua cada noticia (0-10) con un rubric estricto, le asigna
    categoria, la resume y la explica "en simple". Usa salida estructurada (Pydantic).
 4. **ranker**: ve todas las candidatas juntas, colapsa duplicados del mismo evento y
@@ -19,7 +19,7 @@ los directivos de Win Internet. En cada corrida:
    `output/preview.html`.
 7. **outlook_sender**: envia el correo via **Outlook Desktop** (`pywin32`/COM) a los
    destinatarios configurados (soporta varios).
-8. **persist_history**: guarda en Supabase las noticias enviadas para el anti-repeticion.
+8. **persist_history**: guarda en SQLite las noticias enviadas para el anti-repeticion.
 
 Flujo automatico (sin aprobacion humana). Todo queda trazado en **LangSmith** bajo el
 proyecto `agente-noticias-win`.
@@ -34,21 +34,23 @@ Agente Noticias/
 │   ├── schemas.py               # Article, ArticleEvaluation, Ranking, Briefing
 │   ├── prompts.py               # prompts + tono de marca Win
 │   ├── text_utils.py            # normalizacion/similitud de titulos (dedup)
-│   ├── db.py                    # cliente Supabase (historial)
+│   ├── db.py                    # historial en SQLite local
 │   ├── email_template.py        # plantilla HTML con paleta Win
 │   ├── graph.py                 # StateGraph (flujo automatico)
 │   ├── studio.py                # grafo para langgraph dev / Studio
 │   ├── assets/                  # win_logo.png (logo del header)
 │   └── nodes/
 │       ├── researcher.py        # Tavily multi-query + dedup
-│       ├── history_filter.py    # anti-repeticion contra Supabase
+│       ├── history_filter.py    # anti-repeticion contra el historial
 │       ├── evaluator.py         # LLM scoring (solo puntua)
 │       ├── ranker.py            # scoring comparativo diferenciado
 │       ├── summarizer.py        # briefing + concepto + chiste
 │       ├── email_writer.py      # renderiza HTML + preview
 │       ├── outlook_sender.py    # pywin32 -> Outlook (CID logo, multi-destino)
-│       └── persist_history.py   # guarda historial en Supabase
+│       └── persist_history.py   # guarda historial en SQLite
+├── data/                        # agente_noticias.db (no se versiona)
 ├── scripts/run.py
+├── tests/                       # pytest
 ├── langgraph.json
 ├── pyproject.toml
 ├── requirements.txt
@@ -60,7 +62,7 @@ Agente Noticias/
 - Windows + Python 3.11+
 - [uv](https://docs.astral.sh/uv/) como gestor de paquetes
 - Outlook Desktop abierto y autenticado (para el envio real)
-- API keys: OpenAI, Tavily, LangSmith y (opcional pero recomendado) Supabase
+- API keys: OpenAI, Tavily y LangSmith
 
 ## Instalacion (uv)
 
@@ -82,9 +84,8 @@ LANGSMITH_TRACING=true
 LANGSMITH_PROJECT=agente-noticias-win
 NEWS_RECIPIENT=directivo1@win.pe,directivo2@win.pe   # varios separados por coma
 NEWS_MODEL=gpt-5-mini
-SUPABASE_URL=https://nknpunmqivtvbiwaubqd.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=...   # del proyecto Automatizaciones (Settings > API)
 DEDUP_WEEKS=6
+# NEWS_DB_PATH=data/agente_noticias.db   # opcional (default)
 ```
 
 ### Logo de Win
@@ -122,9 +123,9 @@ App local con el look & feel de Win para operar el agente sin tocar codigo:
    - Concepto del dia: "Regenerar concepto" (elige otro sin repetir los de semanas
      anteriores) o escribe tu propio concepto/tema y pulsa "Usar mi concepto".
    - "Regenerar chiste": genera uno nuevo (sin repetir los de semanas anteriores,
-     validado contra Supabase).
+     validado contra el historial).
 4. "Ver correo" -> vista previa real del correo en una ventana.
-5. "Enviar correo" -> manda el correo por Outlook y guarda el historial en Supabase.
+5. "Enviar correo" -> manda el correo por Outlook y guarda el historial en SQLite.
 
 Requiere Outlook Desktop abierto para el envio. El flujo completo tambien queda
 trazado en LangSmith (`agente-noticias-win`).
@@ -148,15 +149,19 @@ en `{}` y presiona **Submit**.
 > `.langgraph_api/` (y se genera `output/preview.html`), entra en un bucle de
 > recargas que **re-ejecuta el grafo y envia el correo dos veces** con un solo
 > Submit. `--allow-blocking` evita que el servidor de dev marque como problema las
-> llamadas bloqueantes de los nodos (Tavily, OpenAI, Outlook, Supabase).
+> llamadas bloqueantes de los nodos (Tavily, OpenAI, Outlook, SQLite).
 
-## Historial anti-repeticion (Supabase)
+## Historial anti-repeticion (SQLite)
 
-- Proyecto: **Automatizaciones** (`nknpunmqivtvbiwaubqd`), esquema `agente_noticias`.
-- Tablas: `briefings` y `sent_articles` (con RLS; el acceso es via service role key).
+- Archivo local `data/agente_noticias.db` (configurable con `NEWS_DB_PATH`). Se crea
+  solo en la primera corrida; no requiere servicios externos.
+- Tablas: `briefings` y `sent_articles` (incluye `company` e `image_path`; las
+  imagenes de las tarjetas se guardan como archivos, la BD solo guarda la ruta).
 - `history_filter` consulta lo enviado en las ultimas `DEDUP_WEEKS` semanas y descarta
   repetidos; `persist_history` guarda lo enviado tras cada correo.
-- Si no configuras Supabase, el agente sigue funcionando (no filtra ni guarda).
+- Si la BD falla, el agente sigue funcionando (no filtra ni guarda) y lo avisa con
+  `[db] WARNING` en la consola.
+- Tests: `uv run pytest -q tests`.
 
 ## Trazabilidad LangSmith
 
@@ -169,7 +174,7 @@ Cada corrida se agrupa en el proyecto **`agente-noticias-win`** con tags, metada
   llama a `CoInitialize()` por hilo. Asegura que Outlook este abierto.
 - **El logo no se ve en el correo**: confirma que `assets/win_logo.png` existe; en el
   preview del navegador se usa data URI y en el correo `cid:winlogo`.
-- **No filtra repetidos**: revisa `SUPABASE_SERVICE_ROLE_KEY` (no debe quedar en
-  `PENDIENTE_...`).
+- **No filtra repetidos**: busca `[db] WARNING` en la consola y revisa que
+  `NEWS_DB_PATH` (o `data/`) sea escribible.
 - **Trace no aparece en LangSmith**: confirma `LANGSMITH_TRACING=true`.
 ```

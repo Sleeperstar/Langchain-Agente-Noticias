@@ -1,7 +1,7 @@
-"""Persist history node: guarda en Supabase las noticias enviadas.
+"""Persist history node: guarda en el historial SQLite las noticias enviadas.
 
 Solo persiste si el correo se envio correctamente. Asi la proxima corrida no
-repite estas noticias. Degrada de forma segura si Supabase no esta configurado.
+repite estas noticias. Degrada de forma segura si la BD falla.
 """
 from __future__ import annotations
 
@@ -65,6 +65,6 @@ def persist_history_node(state: NewsState) -> dict:
     if briefing_id:
         print(f"[persist_history] historial guardado (briefing_id={briefing_id})")
     else:
-        print("[persist_history] no se guardo historial (Supabase no configurado o error)")
+        print("[persist_history] no se guardo historial (error en la BD, ver [db] WARNING)")
 
     return {"briefing_id": briefing_id}

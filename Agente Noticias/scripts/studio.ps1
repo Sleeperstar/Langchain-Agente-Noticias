@@ -3,7 +3,7 @@
 # - --no-reload: desactiva el auto-reload que provoca el bucle de recargas
 #   (y el doble envio del correo) al escribirse archivos dentro del proyecto.
 # - --allow-blocking: permite las llamadas bloqueantes de los nodos
-#   (Tavily, OpenAI, Outlook, Supabase) sin que el servidor de dev las marque.
+#   (Tavily, OpenAI, Outlook, SQLite) sin que el servidor de dev las marque.
 #
 # Uso:  powershell -ExecutionPolicy Bypass -File scripts/studio.ps1 [-Port 2024]
 
