@@ -51,7 +51,10 @@ Agente Noticias/
 │   ├── draft.py                 # borrador listo para enviar (output/draft/)
 │   ├── graph.py                 # StateGraph (flujo automatico)
 │   ├── studio.py                # grafo para langgraph dev / Studio
-│   ├── assets/                  # win_logo.png (logo del header)
+│   ├── logos.py                 # empresas (claves, alias, slugs) + busqueda de logos
+│   ├── logo_finder.py           # agente que aprende logos nuevos (Wikidata/Commons)
+│   ├── card_images.py           # tarjetas PNG (ilustracion + badge de empresa)
+│   ├── assets/                  # win_logo.png, header, logos/ de las 14 empresas clave
 │   └── nodes/
 │       ├── researcher.py        # Tavily multi-query + dedup
 │       ├── history_filter.py    # anti-repeticion contra el historial
@@ -61,7 +64,7 @@ Agente Noticias/
 │       ├── email_writer.py      # renderiza HTML + preview
 │       ├── outlook_sender.py    # pywin32 -> Outlook (CID logo, multi-destino)
 │       └── persist_history.py   # guarda historial en SQLite
-├── data/                        # agente_noticias.db (no se versiona)
+├── data/                        # agente_noticias.db, images/, logos/ (no se versiona)
 ├── scripts/run.py               # corrida end-to-end (--dry-run = preview + borrador)
 ├── scripts/send_draft.py        # envia el borrador revisado (--to)
 ├── tests/                       # pytest
@@ -106,6 +109,26 @@ DEDUP_WEEKS=6
 
 Coloca el logo blanco + claim (PNG transparente) en
 `agente_noticias/assets/win_logo.png`. Si falta, el header usa un wordmark de texto.
+
+### Logos de empresas en las tarjetas
+
+El evaluator devuelve la empresa protagonista de cada noticia (cualquier empresa, o
+`null` si no hay una sola). Las 14 empresas clave (OpenAI, Anthropic, Google, Gemini,
+Meta, Microsoft, NVIDIA, xAI, Mistral AI, DeepSeek, Apple, Amazon, Alibaba, Qwen) se
+normalizan a su clave (`"Google DeepMind"` -> `google`) y el ranker les da **prioridad**,
+manteniendo **una noticia por empresa**.
+
+Antes de componer cada tarjeta se busca el logo: primero
+`agente_noticias/assets/logos/<clave>.png`, luego los aprendidos en `data/logos/`. Si no
+existe, un agente de LangChain (`logo_finder.py`) elige la entidad correcta en
+**Wikidata**, descarga el logo de **Wikimedia Commons** (icono P8972, si no logo P154),
+lo normaliza y lo guarda en `data/logos/<slug>.png` + `data/logos/registry.json`
+(normalmente 1 llamada al LLM por empresa nueva). Si no lo encuentra, la tarjeta lleva
+solo el nombre y no se reintenta por 30 dias (para forzarlo, borra la entrada del
+registry). Un fallo de logo nunca detiene la corrida.
+
+Badge: logo + nombre; si el logo es un wordmark (muy ancho) va solo el logo; sin logo,
+solo el nombre; sin empresa, sin badge.
 
 ## Uso
 

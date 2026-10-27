@@ -7,9 +7,10 @@ Each card is a 528x370 PNG (shown at 264x185 in the email) built as:
       `data[0].b64_json`), house style in `prompts.CARD_IMAGE_PROMPT`.
    b. The article's source image (`Article.image_url`) or its `og:image`/`twitter:image`.
    c. A branded placeholder drawn with Pillow (dark gradient with orange/yellow glow).
-2. Cover-crop to 528x370, white badge tab at the bottom-left (logo + company name,
-   rounded top-right corner) and rounded image corners baked into the alpha channel
-   (Outlook ignores CSS border-radius).
+2. Cover-crop to 528x370, white badge tab at the bottom-left (logo + company name; a
+   wordmark logo alone; the name alone when no logo is known; rounded top-right corner)
+   and rounded image corners baked into the alpha channel (Outlook ignores CSS
+   border-radius). Unknown companies get their logo from `logo_finder` beforehand.
 
 Nothing here raises to the caller for a bad image source: every failure logs a
 warning and falls through to the next option.
@@ -49,7 +50,12 @@ BADGE_GAP = 10
 MAX_CARD_BYTES = 100_000
 CARD_PALETTE_STEPS = (192, 128, 64, 32)
 LOGO_HEIGHT = 36
+# Wide logos (wordmarks) already spell the name: drawn alone, a bit shorter.
+WORDMARK_MIN_ASPECT = 2.6
+WORDMARK_HEIGHT = 30
+BADGE_MAX_WIDTH = CARD_SIZE[0] - 96
 BADGE_FONT_SIZE = 26
+MIN_BADGE_FONT_SIZE = 18
 SUPERSAMPLE = 4
 
 # WIN palette.
@@ -304,25 +310,66 @@ def _load_logo(company: str, logos_dir: Path | None) -> Image.Image | None:
         return None
     try:
         logo = Image.open(path).convert("RGBA")
+        logo.load()
     except Exception as exc:  # noqa: BLE001
         _warn(f"unreadable logo {path.name}: {exc}")
         return None
-    width = max(1, round(logo.width * LOGO_HEIGHT / logo.height))
-    return logo.resize((width, LOGO_HEIGHT), Image.LANCZOS)
+    return logo if logo.width and logo.height else None
+
+
+def _fit_logo(logo: Image.Image, height: int, max_width: int) -> Image.Image:
+    """Resizes to `height`, shrinking further if that would exceed `max_width`."""
+    width = round(logo.width * height / logo.height)
+    if width > max_width:
+        width, height = max_width, round(logo.height * max_width / logo.width)
+    return logo.resize((max(1, width), max(1, height)), Image.LANCZOS)
+
+
+def _fit_text(draw: ImageDraw.ImageDraw, text: str, max_width: int):
+    """(font, text) that fits `max_width`: smaller font first, then an ellipsis."""
+    size = BADGE_FONT_SIZE
+    font = bold_font(size)
+    while draw.textlength(text, font=font) > max_width and size > MIN_BADGE_FONT_SIZE:
+        size -= 2
+        font = bold_font(size)
+    if draw.textlength(text, font=font) <= max_width:
+        return font, text
+    while text and draw.textlength(text + "…", font=font) > max_width:
+        text = text[:-1]
+    return font, (text.rstrip() + "…") if text else ""
+
+
+def _badge_layout(
+    draw: ImageDraw.ImageDraw, company: str, logos_dir: Path | None
+) -> tuple[int, Image.Image | None, str, ImageFont.ImageFont | ImageFont.FreeTypeFont]:
+    """(badge width, scaled logo or None, name to draw or "", font).
+
+    - symbol logo: logo + name;
+    - wordmark logo (aspect >= WORDMARK_MIN_ASPECT): logo only (it already spells the name);
+    - no logo: name only.
+    The badge never exceeds BADGE_MAX_WIDTH (long wordmarks shrink, long names shrink/clip).
+    """
+    name = display_name(company)
+    room = BADGE_MAX_WIDTH - BADGE_PAD_LEFT - BADGE_PAD_RIGHT
+    logo = _load_logo(company, logos_dir)
+    if logo is not None and logo.width / logo.height >= WORDMARK_MIN_ASPECT:
+        logo = _fit_logo(logo, WORDMARK_HEIGHT, room)
+        return BADGE_PAD_LEFT + logo.width + BADGE_PAD_RIGHT, logo, "", bold_font(BADGE_FONT_SIZE)
+    content_w = 0
+    if logo is not None:
+        logo = _fit_logo(logo, LOGO_HEIGHT, room // 2)
+        content_w = logo.width + BADGE_GAP
+    font, name = _fit_text(draw, name, room - content_w)
+    content_w += int(draw.textlength(name, font=font))
+    return BADGE_PAD_LEFT + content_w + BADGE_PAD_RIGHT, logo, name, font
 
 
 def _draw_badge(img: Image.Image, company: str, logos_dir: Path | None) -> None:
-    """White tab at the bottom-left with the logo + company name."""
+    """White tab at the bottom-left with the logo and/or company name."""
     w, h = img.size
-    name = display_name(company)
-    font = bold_font(BADGE_FONT_SIZE)
     draw = ImageDraw.Draw(img)
-    logo = _load_logo(company, logos_dir)
-
-    content_w = int(draw.textlength(name, font=font))
-    if logo is not None:
-        content_w += logo.width + BADGE_GAP
-    badge_w = min(w, BADGE_PAD_LEFT + content_w + BADGE_PAD_RIGHT)
+    badge_w, logo, name, font = _badge_layout(draw, company, logos_dir)
+    badge_w = min(w, badge_w)
     top = h - BADGE_HEIGHT
 
     # Supersampled shape; only the top-right corner is rounded (the others fall
@@ -340,7 +387,8 @@ def _draw_badge(img: Image.Image, company: str, logos_dir: Path | None) -> None:
     if logo is not None:
         img.alpha_composite(logo, (x, top + (BADGE_HEIGHT - logo.height) // 2))
         x += logo.width + BADGE_GAP
-    draw.text((x, top + BADGE_HEIGHT / 2), name, font=font, fill=BADGE_TEXT + (255,), anchor="lm")
+    if name:
+        draw.text((x, top + BADGE_HEIGHT / 2), name, font=font, fill=BADGE_TEXT + (255,), anchor="lm")
 
 
 def _round_corners(img: Image.Image, radius: int) -> None:

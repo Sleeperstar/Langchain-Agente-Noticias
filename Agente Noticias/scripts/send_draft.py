@@ -145,6 +145,11 @@ def main(argv: list[str] | None = None, input_fn: Callable[[str], str] = input) 
         return _error(f"no se pudo enviar el correo via Outlook: {exc} (borrador sin cambios)")
     print(f"[send_draft] {result}")
 
+    # The email is out: mark the draft as sent FIRST, so a crash while writing the
+    # history (or anything after) can never allow an accidental resend.
+    draft_module.mark_sent(draft_path, recipients)
+    print(f"[send_draft] borrador marcado como enviado: {draft_path}")
+
     briefing_id = save_briefing(
         subject=draft.get("subject", ""),
         recipients=", ".join(recipients),
@@ -157,11 +162,6 @@ def main(argv: list[str] | None = None, input_fn: Callable[[str], str] = input) 
     else:
         print("[send_draft] AVISO: el correo se envio pero NO se guardo el historial (ver [db]).",
               file=sys.stderr)
-
-    # The email is out: mark the draft as sent even if the history write failed,
-    # so it cannot be resent by accident.
-    draft_module.mark_sent(draft_path, recipients)
-    print(f"[send_draft] borrador marcado como enviado: {draft_path}")
     return EXIT_SENT
 
 

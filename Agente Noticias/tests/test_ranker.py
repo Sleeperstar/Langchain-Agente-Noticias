@@ -1,8 +1,18 @@
 """Ranker variety: at most one news item per company."""
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
+
 from agente_noticias.nodes import ranker
 from agente_noticias.schemas import Article, ArticleEvaluation, EvaluatedArticle, Ranking
+
+
+@pytest.fixture(autouse=True)
+def _every_company_has_a_logo(monkeypatch):
+    # No network/agent in tests: the logo gate is exercised explicitly below.
+    monkeypatch.setattr(ranker, "ensure_logo", lambda company: Path(f"{company}.png"))
 
 
 def _item(n: int, company: str | None, score: int = 8) -> EvaluatedArticle:
@@ -71,3 +81,76 @@ def test_ranker_node_enforces_variety_when_model_ignores_it(monkeypatch):
     companies = [it.evaluation.company for it in out]
     assert companies[:2] == ["openai", "anthropic"]
     assert companies.count("openai") == 2  # only 2 companies exist, so one repeat fills the slot
+
+
+def test_pick_diverse_prefers_key_companies_when_topping_up():
+    lead = _item(1, "openai")
+    pool = [_item(2, "openai"), _item(3, "Walmart"), _item(4, None), _item(5, "google"), _item(6, "1Password")]
+    picked = ranker.pick_diverse([lead], pool, 4)
+    assert _titles(picked) == ["News 1", "News 5", "News 3", "News 4"]
+
+
+def test_pick_diverse_keeps_model_order_for_ordered_items():
+    ordered = [_item(1, "Walmart"), _item(2, "anthropic")]
+    assert _titles(ranker.pick_diverse(ordered, [], 2)) == ["News 1", "News 2"]
+
+
+def test_pick_diverse_compares_companies_by_slug():
+    items = [_item(1, "Google DeepMind"), _item(2, "google"), _item(3, "Walmart"), _item(4, "Walmart Inc.")]
+    picked = ranker.pick_diverse(items, [], 2)
+    assert _titles(picked) == ["News 1", "News 3"]
+
+
+def test_candidates_block_marks_key_companies():
+    block = ranker._format_candidates_block([_item(1, "openai"), _item(2, "Walmart"), _item(3, None)])
+    assert "Empresa: OpenAI [clave]" in block
+    assert "Empresa: Walmart\n" in block
+    assert "Empresa: -\n" in block
+
+
+def test_ranker_fallback_prioritizes_key_companies(monkeypatch):
+    class Boom:
+        def with_structured_output(self, _schema):
+            return self
+
+        def invoke(self, _messages):
+            raise RuntimeError("timeout")
+
+    scored = [_item(1, "Walmart", 9), _item(2, "1Password", 8), _item(3, "nvidia", 7), _item(4, "meta", 6)]
+    monkeypatch.setattr(ranker, "get_chat_model", lambda: Boom())
+    monkeypatch.setattr(ranker, "MAX_ARTICLES", 3)
+    out = ranker.ranker_node({"scored_articles": scored})["selected_articles"]
+    assert _titles(out) == ["News 3", "News 4", "News 1"]
+
+
+def test_pick_diverse_skips_rejected_items_and_tops_up():
+    items = [_item(1, "openai"), _item(2, "Walmart"), _item(3, "meta"), _item(4, "nvidia")]
+    no_walmart = lambda it: it.evaluation.company != "Walmart"  # noqa: E731
+    picked = ranker.pick_diverse(items, [], 3, accept=no_walmart)
+    assert _titles(picked) == ["News 1", "News 3", "News 4"]
+
+
+def test_ranker_node_only_keeps_news_with_company_and_logo(monkeypatch, capsys):
+    scored = [
+        _item(1, None, 10),          # government story: no protagonist company
+        _item(2, "Acme Labs", 9),    # company without a findable logo
+        _item(3, "openai", 8),
+        _item(4, "Walmart", 7),
+        _item(5, "meta", 6),
+    ]
+    monkeypatch.setattr(
+        ranker, "ensure_logo", lambda c: None if c == "Acme Labs" else Path(f"{c}.png")
+    )
+
+    class Boom:
+        def with_structured_output(self, _schema):
+            return self
+
+        def invoke(self, _messages):
+            raise RuntimeError("timeout")
+
+    monkeypatch.setattr(ranker, "get_chat_model", lambda: Boom())
+    monkeypatch.setattr(ranker, "MAX_ARTICLES", 3)
+    out = ranker.ranker_node({"scored_articles": scored})["selected_articles"]
+    assert [it.evaluation.company for it in out] == ["openai", "meta", "Walmart"]
+    assert "sin logo para Acme Labs" in capsys.readouterr().out

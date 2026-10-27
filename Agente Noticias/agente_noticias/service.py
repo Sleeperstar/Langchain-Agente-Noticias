@@ -36,6 +36,7 @@ from agente_noticias.jokes import (
     normalize_joke,
 )
 from agente_noticias.llm import get_chat_model
+from agente_noticias.logos import company_slug
 from agente_noticias.nodes.card_images import attach_card_image, project_relative
 from agente_noticias.nodes.evaluator import _evaluate_one
 from agente_noticias.nodes.researcher import _run_single_query
@@ -435,7 +436,7 @@ def send_now() -> dict:
                 "category": e.category,
                 "relevance_score": e.relevance_score,
                 "published_date": a.published_date,
-                "company": e.company,
+                "company": company_slug(e.company),
                 "image_path": project_relative(it.card_image_path),
             }
         )
