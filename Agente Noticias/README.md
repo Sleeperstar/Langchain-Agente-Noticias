@@ -48,6 +48,7 @@ Agente Noticias/
 │   ├── text_utils.py            # normalizacion/similitud de titulos (dedup)
 │   ├── db.py                    # historial en SQLite local
 │   ├── email_template.py        # plantilla HTML con paleta Win
+│   ├── draft.py                 # borrador listo para enviar (output/draft/)
 │   ├── graph.py                 # StateGraph (flujo automatico)
 │   ├── studio.py                # grafo para langgraph dev / Studio
 │   ├── assets/                  # win_logo.png (logo del header)
@@ -61,7 +62,8 @@ Agente Noticias/
 │       ├── outlook_sender.py    # pywin32 -> Outlook (CID logo, multi-destino)
 │       └── persist_history.py   # guarda historial en SQLite
 ├── data/                        # agente_noticias.db (no se versiona)
-├── scripts/run.py
+├── scripts/run.py               # corrida end-to-end (--dry-run = preview + borrador)
+├── scripts/send_draft.py        # envia el borrador revisado (--to)
 ├── tests/                       # pytest
 ├── langgraph.json
 ├── pyproject.toml
@@ -109,10 +111,32 @@ Coloca el logo blanco + claim (PNG transparente) en
 
 ```bash
 uv run python scripts/run.py              # busca, arma briefing y envia por Outlook
-uv run python scripts/run.py --dry-run    # solo genera output/preview.html (no envia ni guarda)
+uv run python scripts/run.py --dry-run    # genera output/preview.html + borrador (no envia ni guarda)
 uv run python scripts/run.py --headless   # no abre el navegador
 uv run python scripts/run.py --model openai/gpt-5-mini   # id de OpenRouter
 ```
+
+### Revisar antes de enviar
+
+Cada corrida busca y redacta contenido nuevo, asi que para aprobar un boletin se envia
+el **mismo borrador** que revisaste, no uno regenerado:
+
+```bash
+# 1. Genera el preview y el borrador listo para enviar (output/draft/)
+uv run python scripts/run.py --dry-run
+
+# 2. Revisa output/preview.html en el navegador
+
+# 3. Envia EXACTAMENTE ese borrador a la lista indicada
+uv run python scripts/send_draft.py --to persona1@win.pe,persona2@win.pe
+```
+
+- `send_draft.py` muestra un resumen (asunto, noticias, destinatarios, peso de imagenes)
+  y pide confirmacion `Enviar? [s/N]`; `--yes` la omite.
+- Tras un envio exitoso guarda el historial anti-repeticion y marca el borrador como
+  enviado. Se niega a reenviarlo salvo con `--force`.
+- Un nuevo `--dry-run` reemplaza el borrador anterior (avisa si no se habia enviado).
+- Codigos de salida: `0` enviado, `1` error o rechazo, `2` cancelado.
 
 ## Interfaz web (recomendada para uso diario)
 
