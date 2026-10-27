@@ -40,7 +40,7 @@ Out of scope: webapp changes; manual curation UI.
 
 ## Tasks
 - [x] L1 Free company names + ranker priority + logo-finder agent + badge rules + tests. Route: delegated (writer; 5+ files).
-- [ ] L2 Real dry run: confirm Walmart/1Password-type news get a badge; show preview; send after user approval (pending from approve-before-send A3).
+- [x] L2 Real dry run: confirm Walmart/1Password-type news get a badge; show preview; send after user approval (pending from approve-before-send A3).
 
 ## Progress / Evidence
 - PR #4 (approve-before-send) opened; review 6 run from a clean worktree (untracked logo files blocked the main tree) → approved, acknowledged, burned. Advisories to fold here: ranker company case-sensitivity (covered by slug normalization in L1); ranker tops up beyond the model's picks (intended: always 3); `send_draft.py` should mark the draft sent BEFORE persisting history so a crash in between can't allow a resend.
@@ -51,5 +51,8 @@ Out of scope: webapp changes; manual curation UI.
 - User decision (2026-10-27): only news WITH a logo (a badgeless card breaks the pattern). Commit `bbef1f6`: candidates need a protagonist company; `pick_diverse(accept=_has_logo)` runs ensure_logo per pick and falls back to the next candidate. 136 tests pass.
 - L2 draft #4: OpenAI (GPT-6.1 Terra), Walmart, 1Password — all 3 with logo badges. Parent screenshot reviewed.
 
+- User asked to keep draft #4 but restore the draft #3 joke ('compras para la oficina' / 'paquete en la nube'): swapped in draft html + history + preview via one-off script; verified both contain only the new joke.
+- **Sent 2026-10-27** (user-approved) with `send_draft.py --yes` to 4 recipients (addresses not recorded in repo): Outlook OK, draft marked sent, history saved (briefing_id 8d5d4087…). Inline images 17–35 KB.
+
 ## Next step
-User approval of draft #4 → `send_draft.py --to <4 recipients>` → push + PR #5.
+Push + PR #5 (stacked on #4); RDD review of the logos slice.
