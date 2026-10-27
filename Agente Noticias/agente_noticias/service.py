@@ -36,6 +36,7 @@ from agente_noticias.jokes import (
     get_recent_jokes,
     normalize_joke,
 )
+from agente_noticias.nodes.card_images import attach_card_image, project_relative
 from agente_noticias.nodes.evaluator import _evaluate_one
 from agente_noticias.nodes.researcher import _run_single_query
 from agente_noticias.nodes.summarizer import _format_articles_block
@@ -50,6 +51,7 @@ DRAFT_NODES = [
     "evaluator",
     "ranker",
     "summarizer",
+    "card_images",
     "email_writer",
 ]
 
@@ -231,7 +233,9 @@ def regenerate_article_auto(index: int) -> dict:
     _DRAFT.pool.remove(replacement)
     # La noticia saliente vuelve al pool por si se quiere recuperar luego.
     _DRAFT.pool.append(_DRAFT.selected[index])
-    _DRAFT.selected[index] = replacement
+    _DRAFT.selected[index] = (
+        replacement if replacement.card_image_path else attach_card_image(replacement)
+    )
 
     _refresh_briefing_text()
     return {"ok": True, "draft": serialize_draft()}
@@ -288,7 +292,7 @@ def replace_article_by_topic(index: int, topic: str) -> dict:
         return {"ok": False, "error": "no se pudo evaluar la noticia encontrada"}
 
     _DRAFT.pool.append(_DRAFT.selected[index])
-    _DRAFT.selected[index] = evaluated
+    _DRAFT.selected[index] = attach_card_image(evaluated)
 
     _refresh_briefing_text()
     return {"ok": True, "draft": serialize_draft()}
@@ -417,6 +421,8 @@ def send_now() -> dict:
                     "category": e.category,
                     "relevance_score": e.relevance_score,
                     "published_date": a.published_date,
+                    "company": e.company,
+                    "image_path": project_relative(it.card_image_path),
                 }
             )
         briefing_id = save_briefing(

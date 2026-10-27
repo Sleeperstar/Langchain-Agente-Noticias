@@ -18,6 +18,8 @@ dependencies = [
     "uvicorn>=0.30",
     "pywin32>=306 ; sys_platform == 'win32'",
     "ipykernel>=7.1.0",
+    "pillow>=13.0.0",
+    "httpx>=0.28.1",
 ]
 
 [project.optional-dependencies]

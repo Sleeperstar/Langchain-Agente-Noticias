@@ -1,10 +1,13 @@
 """Construccion del grafo LangGraph (flujo semanal automatico, sin HITL).
 
 Flujo:
-    START -> researcher -> history_filter -> evaluator -> ranker -> summarizer
-          -> email_writer -> outlook_sender -> persist_history -> END
+    START -> researcher -> history_filter -> evaluator -> ranker
+          -> [summarizer || card_images] -> email_writer -> outlook_sender
+          -> persist_history -> END
 
 - `history_filter` descarta noticias ya enviadas en semanas anteriores (SQLite local).
+- `card_images` (en paralelo con `summarizer`) genera la imagen de cada tarjeta;
+  `email_writer` espera a ambos.
 - Con `send=False` (--dry-run) el grafo termina en `email_writer`: solo genera el
   preview, sin enviar ni persistir el historial.
 """
@@ -13,6 +16,7 @@ from __future__ import annotations
 from langgraph.graph import END, START, StateGraph
 
 from agente_noticias.config import get_recipient
+from agente_noticias.nodes.card_images import card_images_node
 from agente_noticias.nodes.email_writer import email_writer_node
 from agente_noticias.nodes.evaluator import evaluator_node
 from agente_noticias.nodes.history_filter import history_filter_node
@@ -37,14 +41,17 @@ def build_graph(checkpointer=None, send: bool = True):
     builder.add_node("evaluator", evaluator_node)
     builder.add_node("ranker", ranker_node)
     builder.add_node("summarizer", summarizer_node)
+    builder.add_node("card_images", card_images_node)
     builder.add_node("email_writer", email_writer_node)
 
     builder.add_edge(START, "researcher")
     builder.add_edge("researcher", "history_filter")
     builder.add_edge("history_filter", "evaluator")
     builder.add_edge("evaluator", "ranker")
+    # Fan-out: text and card images are independent; fan-in at email_writer.
     builder.add_edge("ranker", "summarizer")
-    builder.add_edge("summarizer", "email_writer")
+    builder.add_edge("ranker", "card_images")
+    builder.add_edge(["summarizer", "card_images"], "email_writer")
 
     if send:
         builder.add_node("outlook_sender", outlook_sender_node)
