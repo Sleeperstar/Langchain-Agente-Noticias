@@ -26,8 +26,12 @@ proyecto `agente-noticias-win`.
 
 **LLM via OpenRouter**: todas las llamadas de texto (evaluator, ranker, summarizer,
 chiste, concepto) y las imagenes de las tarjetas usan **OpenRouter** con una sola
-`OPENROUTER_API_KEY` (fabrica unica en `agente_noticias/llm.py`). Modelo de texto por
-defecto: `openai/gpt-5-mini` (`NEWS_MODEL`, id de OpenRouter).
+`OPENROUTER_API_KEY` (fabrica unica en `agente_noticias/llm.py`). Dos modelos de texto
+(ids de OpenRouter):
+- `NEWS_MODEL` (default `openai/gpt-6.1-terra`): lo que se lee — eleccion de noticias,
+  titular, concepto del dia y chiste.
+- `NEWS_EVAL_MODEL` (default `openai/gpt-6-luna`): las ~30 evaluaciones de noticias y el
+  agente de logos (trabajo en volumen, modelo economico).
 
 **Nunca se envia un boletin vacio**: si no queda ninguna noticia seleccionada (por
 ejemplo, fallaron todas las evaluaciones), el grafo NO pasa por `outlook_sender` ni
@@ -100,7 +104,8 @@ LANGSMITH_API_KEY=...
 LANGSMITH_TRACING=true
 LANGSMITH_PROJECT=agente-noticias-win
 NEWS_RECIPIENT=directivo1@win.pe,directivo2@win.pe   # varios separados por coma
-NEWS_MODEL=openai/gpt-5-mini                        # id de OpenRouter (default)
+NEWS_MODEL=openai/gpt-6.1-terra                     # escritura (default)
+NEWS_EVAL_MODEL=openai/gpt-6-luna                   # evaluaciones + logos (default)
 DEDUP_WEEKS=6
 # NEWS_DB_PATH=data/agente_noticias.db   # opcional (default)
 ```

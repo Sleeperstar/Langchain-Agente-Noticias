@@ -37,8 +37,12 @@ HEADER_PATH = ASSETS_DIR / "header_noticias_ia.png"
 COMPANY_LOGOS_DIR = ASSETS_DIR / "logos"
 
 DEFAULT_RECIPIENT = "jquispeh@win.pe"
-# Text LLM (OpenRouter model id; every chat call goes through OpenRouter, see llm.py).
-DEFAULT_MODEL = "openai/gpt-5-mini"
+# Text LLMs (OpenRouter model ids; every chat call goes through OpenRouter, see llm.py).
+# Writing (ranker, headline, concept, joke) uses the stronger model; the ~30 per-article
+# evaluations and the logo agent use the cheap one. Verified on OpenRouter 2026-10-29:
+# gpt-6.1-terra $1/$5 per M tokens, gpt-6-luna $0.10/$0.50, both with structured outputs.
+DEFAULT_MODEL = "openai/gpt-6.1-terra"
+DEFAULT_EVAL_MODEL = "openai/gpt-6-luna"
 DEFAULT_PROJECT = "agente-noticias-win"
 # Card illustrations via OpenRouter's image API (verified available 2026-10-20).
 DEFAULT_IMAGE_MODEL = "openai/gpt-image-2"
@@ -174,10 +178,19 @@ def get_recipients() -> list[str]:
     return [r.strip() for r in raw.split(",") if r.strip()]
 
 
-def get_model() -> str:
-    """OpenRouter model id. Legacy bare OpenAI ids (e.g. `gpt-5-mini`) get the `openai/` prefix."""
-    model = os.getenv("NEWS_MODEL", "").strip() or DEFAULT_MODEL
+def _openrouter_id(model: str) -> str:
+    """Legacy bare OpenAI ids (e.g. `gpt-5-mini`) get the `openai/` prefix."""
     return model if "/" in model else f"openai/{model}"
+
+
+def get_model() -> str:
+    """Writing model (ranker, headline, concept, joke): NEWS_MODEL or DEFAULT_MODEL."""
+    return _openrouter_id(os.getenv("NEWS_MODEL", "").strip() or DEFAULT_MODEL)
+
+
+def get_eval_model() -> str:
+    """Bulk model for the ~30 per-article evaluations and the logo agent."""
+    return _openrouter_id(os.getenv("NEWS_EVAL_MODEL", "").strip() or DEFAULT_EVAL_MODEL)
 
 
 def get_db_path() -> Path:

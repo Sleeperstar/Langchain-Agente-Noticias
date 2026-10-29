@@ -259,6 +259,7 @@ def build_logo_agent(name: str, slug: str, model=None):
     from langchain.agents import create_agent
     from langchain_core.tools import tool
 
+    from agente_noticias.config import get_eval_model
     from agente_noticias.llm import get_chat_model
 
     state = {"saved": False}
@@ -278,7 +279,7 @@ def build_logo_agent(name: str, slug: str, model=None):
         return result
 
     return create_agent(
-        model or get_chat_model(),
+        model or get_chat_model(get_eval_model()),
         tools=[search_company_tool, save_company_logo_tool],
         system_prompt=AGENT_SYSTEM_PROMPT,
         name="logo_finder",
