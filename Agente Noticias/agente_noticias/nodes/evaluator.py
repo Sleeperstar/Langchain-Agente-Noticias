@@ -9,6 +9,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from agente_noticias._concurrency import submit_with_context
+from agente_noticias.config import get_eval_model
 from agente_noticias.llm import get_chat_model
 from agente_noticias.prompts import EVALUATOR_SYSTEM, EVALUATOR_USER_TEMPLATE
 from agente_noticias.schemas import Article, ArticleEvaluation, EvaluatedArticle
@@ -17,7 +18,7 @@ from agente_noticias.state import NewsState
 
 def _build_evaluator():
     """Devuelve un modelo configurado con structured output."""
-    return get_chat_model().with_structured_output(ArticleEvaluation)
+    return get_chat_model(get_eval_model()).with_structured_output(ArticleEvaluation)
 
 
 def _evaluate_one_or_error(article: Article) -> tuple[EvaluatedArticle | None, Exception | None]:

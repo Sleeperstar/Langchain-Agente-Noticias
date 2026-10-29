@@ -46,7 +46,7 @@ def test_get_chat_model_points_to_openrouter(monkeypatch):
     assert type(model).__name__ == "ChatOpenAI"
     assert model.openai_api_base == "https://openrouter.ai/api/v1"
     assert model.openai_api_key.get_secret_value() == FAKE_KEY
-    assert model.model_name == "openai/gpt-5-mini"
+    assert model.model_name == "openai/gpt-6.1-terra"
     assert model.default_headers["X-Title"] == "Agente Noticias WIN"
 
 
@@ -153,3 +153,34 @@ def test_graph_sends_when_articles_selected(monkeypatch):
 
     assert calls == ["outlook_sender", "persist_history"]
     assert result["send_ok"] is True
+
+
+def test_eval_model_defaults_to_cheap_model_and_writing_to_strong(monkeypatch):
+    from agente_noticias import config
+
+    monkeypatch.delenv("NEWS_MODEL", raising=False)
+    monkeypatch.delenv("NEWS_EVAL_MODEL", raising=False)
+    assert config.get_model() == "openai/gpt-6.1-terra"
+    assert config.get_eval_model() == "openai/gpt-6-luna"
+
+
+def test_eval_model_override_and_legacy_prefix(monkeypatch):
+    from agente_noticias import config
+
+    monkeypatch.setenv("NEWS_EVAL_MODEL", "gpt-5-mini")
+    assert config.get_eval_model() == "openai/gpt-5-mini"
+
+
+def test_evaluator_uses_eval_model(monkeypatch):
+    from agente_noticias.nodes import evaluator
+
+    seen = {}
+
+    class _Fake:
+        def with_structured_output(self, _schema):
+            return self
+
+    monkeypatch.setenv("NEWS_EVAL_MODEL", "openai/gpt-6-luna")
+    monkeypatch.setattr(evaluator, "get_chat_model", lambda model=None: seen.setdefault("model", model) and _Fake())
+    evaluator._build_evaluator()
+    assert seen["model"] == "openai/gpt-6-luna"

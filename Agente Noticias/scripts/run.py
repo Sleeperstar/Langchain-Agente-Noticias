@@ -52,13 +52,13 @@ def main() -> int:
         os.environ["NEWS_MODEL"] = args.model
 
     import agente_noticias  # noqa: F401  (dispara load_environment)
-    from agente_noticias.config import MIN_ARTICLES_TO_SEND, get_model, get_recipients
+    from agente_noticias.config import MIN_ARTICLES_TO_SEND, get_eval_model, get_model, get_recipients
     from agente_noticias.graph import build_graph, default_config
 
     thread_id = args.thread or f"agente-noticias-{date.today().isoformat()}-{uuid.uuid4().hex[:6]}"
     config = default_config(thread_id=thread_id)
     print(f"[run] thread_id={thread_id}  project={os.getenv('LANGSMITH_PROJECT')}")
-    print(f"[run] modelo={get_model()}  destinatarios={', '.join(get_recipients())}")
+    print(f"[run] modelo={get_model()}  evaluador={get_eval_model()}  destinatarios={', '.join(get_recipients())}")
 
     graph = build_graph(send=not args.dry_run)
     result = graph.invoke({}, config)
